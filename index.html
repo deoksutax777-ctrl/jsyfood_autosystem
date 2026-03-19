@@ -1016,11 +1016,13 @@ function borderRTB() { return { right:{style:'thin'}, top:{style:'thin'}, bottom
 const FMT_NUM = '#,##0;[Red]\\-#,##0;"-"';
 const FMT_PCT = '#,##0.0%;[Red]\\-#,##0.0%;"-"';
 // 색상 테마: 파랑, 초록, 빨강, 노랑, 흰색
-const CLR_HEADER = 'FF4472C4';     // 파랑 (헤더)
+const CLR_HEADER = 'FF0066CC';     // 쨍한 파랑 (헤더)
 const CLR_HEADER_FONT = 'FFFFFFFF'; // 흰색 글자
-const CLR_SUBTOTAL = 'FFE2EFDA';   // 연한 초록 (소계)
-const CLR_REVENUE = 'FFFCE4EC';    // 연한 빨강 (매출이익)
-const CLR_HIGHLIGHT = 'FFFFF9C4';  // 연한 노랑 (영업이익)
+const CLR_SUBTOTAL = 'FF00B050';   // 쨍한 초록 (소계)
+const CLR_SUBTOTAL_FONT = 'FFFFFFFF'; // 흰색 글자
+const CLR_REVENUE = 'FFFF3333';    // 쨍한 빨강 (매출이익)
+const CLR_REVENUE_FONT = 'FFFFFFFF'; // 흰색 글자
+const CLR_HIGHLIGHT = 'FFFFD600';  // 쨍한 노랑 (영업이익)
 
 function fillCell(cell, argb) {
   cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb } };
@@ -1028,7 +1030,11 @@ function fillCell(cell, argb) {
 
 function styleCell(cell, opts) {
   const fontOpts = { name: '맑은 고딕', size: opts.size || 10, bold: !!opts.bold };
+  // 배경색에 따라 글자색 자동 지정
   if (opts.fontColor) fontOpts.color = { argb: opts.fontColor };
+  else if (opts.fill === CLR_HEADER) fontOpts.color = { argb: CLR_HEADER_FONT };
+  else if (opts.fill === CLR_SUBTOTAL) fontOpts.color = { argb: CLR_SUBTOTAL_FONT };
+  else if (opts.fill === CLR_REVENUE) fontOpts.color = { argb: CLR_REVENUE_FONT };
   cell.font = fontOpts;
   cell.border = thinBorder();
   if (opts.numFmt) cell.numFmt = opts.numFmt;
