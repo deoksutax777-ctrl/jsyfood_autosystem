@@ -801,8 +801,8 @@ async function generateExcel() {
       const jHeaders = ['전표날짜', '전표번호', '구분', 'Code', '계정과목', '차변', '대변', '거래처', 'Code', '적요', '매핑항목'];
       const jHeaderRow = js.addRow(jHeaders);
       jHeaderRow.eachCell((cell) => {
-        cell.font = { name: '맑은 고딕', size: 10, bold: true };
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD6E4F0' } };
+        cell.font = { name: '맑은 고딕', size: 10, bold: true, color: { argb: CLR_HEADER_FONT } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: CLR_HEADER } };
         cell.border = thinBorder();
         cell.alignment = { horizontal: 'center', vertical: 'middle' };
       });
@@ -826,6 +826,7 @@ async function generateExcel() {
         { width: 12 }, { width: 10 }, { width: 6 }, { width: 8 }, { width: 24 },
         { width: 14 }, { width: 14 }, { width: 14 }, { width: 8 }, { width: 24 }, { width: 14 }
       ];
+      js.views = [{ showGridLines: false, zoomScale: 75 }];
 
       step++;
       fill.style.width = '100%';
@@ -869,17 +870,21 @@ function borderRTB() { return { right:{style:'thin'}, top:{style:'thin'}, bottom
 
 const FMT_NUM = '#,##0;[Red]\\-#,##0;"-"';
 const FMT_PCT = '#,##0.0%;[Red]\\-#,##0.0%;"-"';
-const CLR_HEADER = 'FFD6E4F0';
-const CLR_SUBTOTAL = 'FFE2EFDA';
-const CLR_REVENUE = 'FFFBE5D6';
-const CLR_HIGHLIGHT = 'FFFFFF00';
+// 색상 테마: 파랑, 초록, 빨강, 노랑, 흰색
+const CLR_HEADER = 'FF4472C4';     // 파랑 (헤더)
+const CLR_HEADER_FONT = 'FFFFFFFF'; // 흰색 글자
+const CLR_SUBTOTAL = 'FFE2EFDA';   // 연한 초록 (소계)
+const CLR_REVENUE = 'FFFCE4EC';    // 연한 빨강 (매출이익)
+const CLR_HIGHLIGHT = 'FFFFF9C4';  // 연한 노랑 (영업이익)
 
 function fillCell(cell, argb) {
   cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb } };
 }
 
 function styleCell(cell, opts) {
-  cell.font = { name: '맑은 고딕', size: opts.size || 10, bold: !!opts.bold };
+  const fontOpts = { name: '맑은 고딕', size: opts.size || 10, bold: !!opts.bold };
+  if (opts.fontColor) fontOpts.color = { argb: opts.fontColor };
+  cell.font = fontOpts;
   cell.border = thinBorder();
   if (opts.numFmt) cell.numFmt = opts.numFmt;
   if (opts.fill) fillCell(cell, opts.fill);
@@ -970,28 +975,28 @@ function buildEvalSheet(ws, branch, jSheetName, year) {
   const r3 = ws.getRow(3);
   ws.mergeCells('B3:C4');
   r3.getCell(2).value = '구분';
-  styleCell(r3.getCell(2), { bold: true, fill: CLR_HEADER, align: { horizontal: 'center', vertical: 'middle' } });
+  styleCell(r3.getCell(2), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center', vertical: 'middle' } });
 
   r3.getCell(4).value = yy + '년';
-  styleCell(r3.getCell(4), { bold: true, fill: CLR_HEADER, align: { horizontal: 'center' } });
+  styleCell(r3.getCell(4), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center' } });
   // Merge D3:O3
   ws.mergeCells('D3:O3');
 
   r3.getCell(16).value = '';
-  styleCell(r3.getCell(16), { bold: true, fill: CLR_HEADER, align: { horizontal: 'center' } });
+  styleCell(r3.getCell(16), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center' } });
 
   const r4 = ws.getRow(4);
   const months = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
   for (let i = 0; i < 12; i++) {
     r4.getCell(4 + i).value = months[i];
-    styleCell(r4.getCell(4 + i), { bold: true, fill: CLR_HEADER, align: { horizontal: 'center' } });
+    styleCell(r4.getCell(4 + i), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center' } });
   }
   r4.getCell(16).value = '연간';
-  styleCell(r4.getCell(16), { bold: true, fill: CLR_HEADER, align: { horizontal: 'center' } });
+  styleCell(r4.getCell(16), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center' } });
 
   // Apply borders to merged area
   for (let c = 4; c <= 16; c++) {
-    styleCell(r3.getCell(c), { bold: true, fill: CLR_HEADER, align: { horizontal: 'center' } });
+    styleCell(r3.getCell(c), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center' } });
   }
 
   // Helper to set a data row with SUMIFS
@@ -1196,21 +1201,21 @@ function buildEvalSheet(ws, branch, jSheetName, year) {
     ws.mergeCells('B52:C53');
     const r52 = ws.getRow(52);
     r52.getCell(2).value = '금액';
-    styleCell(r52.getCell(2), { bold: true, fill: CLR_HEADER, align: { horizontal: 'center', vertical: 'middle' } });
+    styleCell(r52.getCell(2), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center', vertical: 'middle' } });
 
     r52.getCell(4).value = yy + '년';
     ws.mergeCells('D52:O52');
     for (let c = 4; c <= 16; c++) {
-      styleCell(r52.getCell(c), { bold: true, fill: CLR_HEADER, align: { horizontal: 'center' } });
+      styleCell(r52.getCell(c), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center' } });
     }
 
     const r53 = ws.getRow(53);
     for (let i = 0; i < 12; i++) {
       r53.getCell(4 + i).value = months[i];
-      styleCell(r53.getCell(4 + i), { bold: true, fill: CLR_HEADER, align: { horizontal: 'center' } });
+      styleCell(r53.getCell(4 + i), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center' } });
     }
     r53.getCell(16).value = '연간';
-    styleCell(r53.getCell(16), { bold: true, fill: CLR_HEADER, align: { horizontal: 'center' } });
+    styleCell(r53.getCell(16), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center' } });
   }
 
   function setSummaryRefRow(rowNum, bLabel, cLabel, refFormula, opts) {
@@ -1276,19 +1281,19 @@ function buildEvalSheet(ws, branch, jSheetName, year) {
     ws.mergeCells('B75:C76');
     const r75 = ws.getRow(75);
     r75.getCell(2).value = '비율';
-    styleCell(r75.getCell(2), { bold: true, fill: CLR_HEADER, align: { horizontal: 'center', vertical: 'middle' } });
+    styleCell(r75.getCell(2), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center', vertical: 'middle' } });
     r75.getCell(4).value = yy + '년';
     ws.mergeCells('D75:O75');
     for (let c = 4; c <= 16; c++) {
-      styleCell(r75.getCell(c), { bold: true, fill: CLR_HEADER, align: { horizontal: 'center' } });
+      styleCell(r75.getCell(c), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center' } });
     }
     const r76 = ws.getRow(76);
     for (let i = 0; i < 12; i++) {
       r76.getCell(4 + i).value = months[i];
-      styleCell(r76.getCell(4 + i), { bold: true, fill: CLR_HEADER, align: { horizontal: 'center' } });
+      styleCell(r76.getCell(4 + i), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center' } });
     }
     r76.getCell(16).value = '연간';
-    styleCell(r76.getCell(16), { bold: true, fill: CLR_HEADER, align: { horizontal: 'center' } });
+    styleCell(r76.getCell(16), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center' } });
   }
 
   // Map section 2 rows to section 3 rows (offset = 75-52 = 23)
@@ -1450,8 +1455,8 @@ function buildEvalSheet(ws, branch, jSheetName, year) {
   }
   // Row 2, 51, 74: 섹션 사이 빈 행 (테두리 없이 깔끔하게)
 
-  // Freeze panes: freeze at D5
-  ws.views = [{ state: 'frozen', xSplit: 3, ySplit: 4, topLeftCell: 'D5', activeCell: 'D5' }];
+  // Freeze panes + 눈금선 끄기 + 배율 75%
+  ws.views = [{ state: 'frozen', xSplit: 3, ySplit: 4, topLeftCell: 'D5', activeCell: 'D5', showGridLines: false, zoomScale: 75 }];
 }
 
 function buildTotalSheet(wb, branches, year) {
@@ -1475,15 +1480,15 @@ function buildTotalSheet(wb, branches, year) {
   // Row 2: Headers
   const r2 = ws.getRow(2);
   r2.getCell(2).value = '구분';
-  styleCell(r2.getCell(2), { bold: true, fill: CLR_HEADER, align: { horizontal: 'center' } });
+  styleCell(r2.getCell(2), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center' } });
   r2.getCell(3).value = '';
-  styleCell(r2.getCell(3), { bold: true, fill: CLR_HEADER, align: { horizontal: 'center' } });
+  styleCell(r2.getCell(3), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center' } });
   for (let i = 0; i < 12; i++) {
     r2.getCell(4 + i).value = months[i];
-    styleCell(r2.getCell(4 + i), { bold: true, fill: CLR_HEADER, align: { horizontal: 'center' } });
+    styleCell(r2.getCell(4 + i), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center' } });
   }
   r2.getCell(16).value = '연간';
-  styleCell(r2.getCell(16), { bold: true, fill: CLR_HEADER, align: { horizontal: 'center' } });
+  styleCell(r2.getCell(16), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center' } });
 
   let currentRow = 3;
   branches.forEach((branch, bIdx) => {
@@ -1602,6 +1607,9 @@ function buildTotalSheet(wb, branches, year) {
     ws.getRow(totalOpRow).getCell(c).border = borderLRB();
   }
   ws.getRow(totalOpRow).getCell(16).border = borderRB();
+
+  // 눈금선 끄기 + 배율 75%
+  ws.views = [{ showGridLines: false, zoomScale: 75 }];
 }
 </script>
 </body>
