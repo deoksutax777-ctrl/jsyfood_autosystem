@@ -307,8 +307,10 @@ function autoMap(code, name) {
 // ============================================================
 function extractBranchName(filename) {
   let name = filename.replace(/\.(xlsx|xls)$/i, '');
-  name = name.replace(/_?분개장/g, '');
-  return name.trim();
+  name = name.replace(/분개장[_\s]*/g, '');
+  name = name.replace(/[_\s]*분개장/g, '');
+  name = name.replace(/^[_\s]+|[_\s]+$/g, '');
+  return name.trim() || filename.replace(/\.(xlsx|xls)$/i, '').trim();
 }
 
 function excelDateToJS(v) {
@@ -378,7 +380,7 @@ function handleJournalFiles(files) {
           const r = rows[i];
           if (!r || r.length === 0) continue;
           const firstCell = String(r[0] || '').trim();
-          if (firstCell === '합계' || firstCell === '') continue;
+          if (firstCell.startsWith('합계') || firstCell === '') continue;
           const dt = excelDateToJS(r[0]);
           if (!dt) continue;
           data.push({
@@ -395,12 +397,14 @@ function handleJournalFiles(files) {
           });
         }
         uploadedFiles[branch] = { file: f, data };
-        if (data.length > 0) {
+        console.log(`✅ ${branch}: ${data.length}건 파싱 완료`);
+        if (data.length > 0 && data[0].date instanceof Date) {
           const y = data[0].date.getFullYear();
           if (y >= 2020 && y <= 2099) detectedYear = y;
         }
         renderFileList();
       } catch (err) {
+        console.error('파싱 에러:', err);
         alert('파일 파싱 오류: ' + f.name + '\n' + err.message);
       }
     };
