@@ -830,13 +830,29 @@ function buildSummary() {
       else if (target.type === 'cogs') cogs += (r.debit - r.credit);
       else sga += (r.debit - r.credit);
     });
+    // 수식 산출 항목 추가 (엑셀과 동일하게)
+    const retirement = Math.round(sga > 0 ? (revenue > 0 ? sga : 0) : 0); // 급여 기반
+    // 급여 항목만 따로 집계
+    let salaryTotal = 0;
+    data.forEach(r => {
+      if (r.date instanceof Date && selectedMonths.size > 0) {
+        if (!selectedMonths.has(r.date.getMonth() + 1)) return;
+      }
+      const mp = accountMap[r.code]?.mapping;
+      if (mp === '급여') salaryTotal += (r.debit - r.credit);
+    });
+    const calcRetirement = Math.round(salaryTotal / 12);     // 퇴직급여 = 급여/12
+    const calcCardFee = Math.round(revenue * 0.022);          // 카드수수료 = 매출*2.2%
+    const calcReserve = Math.round(revenue * 0.07);           // 예비비 = 매출*7%
+    const totalSga = sga + calcRetirement + calcCardFee + calcReserve;
     const gross = revenue - cogs;
-    const op = gross - sga;
+    const op = gross - totalSga;
     html += `<div class="summary-card"><h3>${branch}</h3>` +
       `<div class="row"><span>매출액</span><span>${formatKRW(revenue)}</span></div>` +
       `<div class="row"><span>매출원가</span><span>${formatKRW(cogs)}</span></div>` +
       `<div class="row"><span>매출총이익</span><span>${formatKRW(gross)}</span></div>` +
-      `<div class="row"><span>판관비</span><span>${formatKRW(sga)}</span></div>` +
+      `<div class="row"><span>판관비</span><span>${formatKRW(totalSga)}</span></div>` +
+      `<div class="row" style="font-size:0.78rem;color:var(--text-dim)"><span>&nbsp;&nbsp;(퇴직${formatKRW(calcRetirement)} + 카드${formatKRW(calcCardFee)} + 예비${formatKRW(calcReserve)})</span></div>` +
       `<div class="row total"><span>영업이익</span><span style="color:${op >= 0 ? 'var(--green)' : 'var(--red)'}">${formatKRW(op)}</span></div>` +
       `</div>`;
   }
