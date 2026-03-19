@@ -137,6 +137,10 @@ th.sortable:hover { color:var(--accent); }
         </div>
         <input type="file" id="journalInput" multiple accept=".xlsx,.xls" style="display:none">
         <div class="file-list" id="fileList"></div>
+        <div id="monthSelector" style="display:none;margin-top:12px;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+          <p style="font-size:0.85rem;font-weight:600;margin-bottom:8px">📅 대상 월 선택 <span style="font-weight:400;color:var(--text-dim)">(선택한 월만 분류·생성)</span></p>
+          <div id="monthButtons" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+        </div>
       </div>
       <div>
         <div class="mapping-upload-zone" id="mappingZone">
@@ -340,6 +344,9 @@ function formatKRW(n) {
 // ============================================================
 // FILE UPLOAD
 // ============================================================
+let selectedMonths = new Set(); // 선택된 월 (1~12)
+let availableMonths = new Set(); // 분개장에서 감지된 월
+
 const journalZone = document.getElementById('journalZone');
 const journalInput = document.getElementById('journalInput');
 const fileList = document.getElementById('fileList');
@@ -432,7 +439,49 @@ function renderFileList() {
     const cnt = uploadedFiles[b].data.length;
     return `<div class="file-chip"><span class="branch">${b}</span><span>${cnt}건</span><span class="remove" onclick="removeBranch('${b}')">&times;</span></div>`;
   }).join('');
+
+  // 월 감지
+  availableMonths = new Set();
+  for (const b of branches) {
+    for (const row of uploadedFiles[b].data) {
+      if (row.date instanceof Date) {
+        availableMonths.add(row.date.getMonth() + 1);
+      }
+    }
+  }
+
+  const sel = document.getElementById('monthSelector');
+  const btns = document.getElementById('monthButtons');
+  if (availableMonths.size > 0) {
+    sel.style.display = 'block';
+    // 처음 감지 시 전체 선택
+    if (selectedMonths.size === 0) {
+      selectedMonths = new Set(availableMonths);
+    }
+    const sorted = [...availableMonths].sort((a, b) => a - b);
+    btns.innerHTML = sorted.map(m => {
+      const active = selectedMonths.has(m) ? 'active' : '';
+      return `<button class="branch-tab ${active}" onclick="toggleMonth(${m})">${m}월</button>`;
+    }).join('') + `<button class="branch-tab" style="margin-left:8px;font-size:11px;color:var(--text-dim)" onclick="selectAllMonths()">전체</button>`;
+  } else {
+    sel.style.display = 'none';
+  }
+
   document.getElementById('btnToStep2').disabled = branches.length === 0;
+}
+
+function toggleMonth(m) {
+  if (selectedMonths.has(m)) {
+    if (selectedMonths.size > 1) selectedMonths.delete(m); // 최소 1개
+  } else {
+    selectedMonths.add(m);
+  }
+  renderFileList();
+}
+
+function selectAllMonths() {
+  selectedMonths = new Set(availableMonths);
+  renderFileList();
 }
 
 function removeBranch(b) {
@@ -465,9 +514,14 @@ let selectedBranch = '__all__'; // 현재 선택된 지점 필터
 
 function buildAccountMap() {
   accountMap = {};
-  // 지점별 금액도 함께 저장
+  // 지점별 금액도 함께 저장 (선택된 월만 필터)
   for (const branch of Object.keys(uploadedFiles)) {
     for (const row of uploadedFiles[branch].data) {
+      // 선택된 월 필터링
+      if (row.date instanceof Date && selectedMonths.size > 0) {
+        const m = row.date.getMonth() + 1;
+        if (!selectedMonths.has(m)) continue;
+      }
       const c = row.code;
       if (!c) continue;
       if (!accountMap[c]) {
@@ -937,7 +991,7 @@ function buildEvalSheet(ws, branch, jSheetName, year) {
     if (cLabel) { row.getCell(3).value = cLabel; row.getCell(3).font = { name: '맑은 고딕', size: 10 }; }
     for (let m = 1; m <= 12; m++) {
       const col = 3 + m; // D=4
-      if (targetLabel) {
+      if (targetLabel && selectedMonths.has(m)) {
         if (type === 'revenue') {
           row.getCell(col).value = revenueSumifs(jSheetName, targetLabel, year, m);
         } else {
