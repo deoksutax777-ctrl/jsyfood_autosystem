@@ -614,7 +614,7 @@ function renderMappingTable() {
   // Set selected values
   document.querySelectorAll('#mappingTableWrap select').forEach(sel => {
     const c = sel.dataset.code;
-    if (accountMap[c].mapping) sel.value = accountMap[c].mapping;
+    if (accountMap[c] && accountMap[c].mapping) sel.value = accountMap[c].mapping;
   });
 
   // Warnings
