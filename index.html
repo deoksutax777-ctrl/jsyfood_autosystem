@@ -76,6 +76,10 @@ tr.mapped td { }
 td select { background:var(--surface2); color:var(--text); border:1px solid var(--border); border-radius:4px; padding:4px 8px; font-size:0.8rem; font-family:inherit; width:100%; }
 td select.unmapped-sel { border-color:var(--gold); background:#3d3520; }
 
+/* Sortable headers */
+th.sortable { cursor:pointer; user-select:none; transition:color .15s; white-space:nowrap; }
+th.sortable:hover { color:var(--accent); }
+
 /* Branch filter tabs */
 .branch-tab { padding:6px 14px; background:var(--surface); border:1px solid var(--border); border-radius:6px; color:var(--text-dim); font-size:12px; font-weight:500; cursor:pointer; font-family:inherit; transition:all .2s; }
 .branch-tab:hover { background:var(--surface2); color:var(--text); }
@@ -484,12 +488,18 @@ function buildAccountMap() {
   renderMappingTable();
 }
 
+// 정렬/필터 상태
+let sortCol = 'code'; // code, name, amount, mapping
+let sortAsc = true;
+let filterText = '';
+let filterMapping = '__all__'; // __all__, __unmapped__, 또는 특정 매핑명
+
 function renderMappingTable() {
   const allCodes = Object.keys(accountMap).sort((a, b) => a.localeCompare(b, 'ko', { numeric: true }));
   const branches = Object.keys(uploadedFiles);
 
-  // 지점 필터 탭 생성
-  let tabsHtml = `<div style="display:flex;gap:4px;margin-bottom:14px;flex-wrap:wrap">`;
+  // 지점 필터 탭
+  let tabsHtml = `<div style="display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap">`;
   tabsHtml += `<button class="branch-tab ${selectedBranch === '__all__' ? 'active' : ''}" onclick="switchBranchFilter('__all__')">전체 (${allCodes.length})</button>`;
   branches.forEach(b => {
     const cnt = allCodes.filter(c => accountMap[c].branches[b]).length;
@@ -497,13 +507,45 @@ function renderMappingTable() {
   });
   tabsHtml += `</div>`;
 
-  // 선택된 지점 기준 코드 필터링
-  const codes = selectedBranch === '__all__'
+  // 지점 기준 코드 필터링
+  let codes = selectedBranch === '__all__'
     ? allCodes
     : allCodes.filter(c => accountMap[c].branches[selectedBranch]);
 
+  // 텍스트 필터 (코드/계정명 검색)
+  if (filterText) {
+    const ft = filterText.toLowerCase();
+    codes = codes.filter(c => c.toLowerCase().includes(ft) || (accountMap[c].name || '').toLowerCase().includes(ft));
+  }
+  // 매핑 상태 필터
+  if (filterMapping === '__unmapped__') {
+    codes = codes.filter(c => accountMap[c].mapping === null);
+  } else if (filterMapping === '__excluded__') {
+    codes = codes.filter(c => accountMap[c].mapping === '__제외__' || accountMap[c].mapping === '__영업외__');
+  } else if (filterMapping !== '__all__') {
+    codes = codes.filter(c => accountMap[c].mapping === filterMapping);
+  }
+
+  // 정렬
+  codes.sort((a, b) => {
+    let va, vb;
+    if (sortCol === 'code') { va = a; vb = b; }
+    else if (sortCol === 'name') { va = accountMap[a].name || ''; vb = accountMap[b].name || ''; }
+    else if (sortCol === 'amount') {
+      va = selectedBranch === '__all__' ? accountMap[a].totalAmt : (accountMap[a].branches[selectedBranch] || 0);
+      vb = selectedBranch === '__all__' ? accountMap[b].totalAmt : (accountMap[b].branches[selectedBranch] || 0);
+      return sortAsc ? Math.abs(va) - Math.abs(vb) : Math.abs(vb) - Math.abs(va);
+    }
+    else if (sortCol === 'mapping') { va = accountMap[a].mapping || 'ㅎ'; vb = accountMap[b].mapping || 'ㅎ'; }
+    else { va = a; vb = b; }
+    const cmp = String(va).localeCompare(String(vb), 'ko', { numeric: true });
+    return sortAsc ? cmp : -cmp;
+  });
+
+  // 통계 (전체 기준, 필터 전)
+  const allFiltered = selectedBranch === '__all__' ? allCodes : allCodes.filter(c => accountMap[c].branches[selectedBranch]);
   let autoCount = 0, unmappedCount = 0, excludedCount = 0, extCount = 0;
-  codes.forEach(c => {
+  allFiltered.forEach(c => {
     const m = accountMap[c].mapping;
     if (m === '__제외__') excludedCount++;
     else if (m === '__영업외__') extCount++;
@@ -512,7 +554,7 @@ function renderMappingTable() {
   });
 
   document.getElementById('statsBar').innerHTML =
-    `<div class="stat">${selectedBranch === '__all__' ? '전체' : selectedBranch} <span class="val">${codes.length}</span>개</div>` +
+    `<div class="stat">${selectedBranch === '__all__' ? '전체' : selectedBranch} <span class="val">${allFiltered.length}</span>개</div>` +
     `<div class="stat">분류완료 <span class="val green">${autoCount}</span>개</div>` +
     `<div class="stat">미분류 <span class="val ${unmappedCount > 0 ? 'gold' : 'green'}">${unmappedCount}</span>개</div>` +
     `<div class="stat">제외 <span class="val dim">${excludedCount}</span>개</div>` +
@@ -521,12 +563,33 @@ function renderMappingTable() {
   const options = TARGET_LABELS.map(l => `<option value="${l}">${l}</option>`).join('') +
     `<option value="__제외__">제외</option><option value="__영업외__">영업외</option>`;
 
+  // 정렬 아이콘
+  const si = (col) => sortCol === col ? (sortAsc ? ' ▲' : ' ▼') : ' ↕';
+
+  // 매핑 필터 드롭다운 옵션
+  const mapFilterOpts = `<option value="__all__"${filterMapping==='__all__'?' selected':''}>전체</option>` +
+    `<option value="__unmapped__"${filterMapping==='__unmapped__'?' selected':''}>미분류만</option>` +
+    `<option value="__excluded__"${filterMapping==='__excluded__'?' selected':''}>제외/영업외</option>` +
+    TARGET_LABELS.map(l => `<option value="${l}"${filterMapping===l?' selected':''}>${l}</option>`).join('');
+
   let html = tabsHtml;
-  html += '<table><thead><tr><th>코드</th><th>계정명</th>';
-  if (selectedBranch === '__all__' && branches.length > 1) {
-    html += '<th>지점</th>';
-  }
-  html += '<th style="text-align:right">발생금액</th><th style="min-width:180px">→ 매핑항목</th></tr></thead><tbody>';
+
+  // 필터 바
+  html += `<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center">`;
+  html += `<input type="text" placeholder="🔍 코드/계정명 검색" value="${filterText}" oninput="filterText=this.value;renderMappingTable()" style="flex:1;min-width:180px;padding:6px 10px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;font-family:inherit">`;
+  html += `<select onchange="filterMapping=this.value;renderMappingTable()" style="padding:6px 8px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;font-family:inherit">${mapFilterOpts}</select>`;
+  html += `<span style="font-size:12px;color:var(--text-dim)">${codes.length}건 표시</span>`;
+  html += `</div>`;
+
+  const showBranch = selectedBranch === '__all__' && branches.length > 1;
+  html += '<table><thead><tr>';
+  html += `<th class="sortable" onclick="toggleSort('code')">코드${si('code')}</th>`;
+  html += `<th class="sortable" onclick="toggleSort('name')">계정명${si('name')}</th>`;
+  if (showBranch) html += '<th>지점</th>';
+  html += `<th class="sortable" style="text-align:right" onclick="toggleSort('amount')">발생금액${si('amount')}</th>`;
+  html += `<th class="sortable" onclick="toggleSort('mapping')" style="min-width:180px">→ 매핑항목${si('mapping')}</th>`;
+  html += '</tr></thead><tbody>';
+
   codes.forEach(c => {
     const a = accountMap[c];
     const m = a.mapping;
@@ -537,9 +600,7 @@ function renderMappingTable() {
       `<span style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-size:11px;margin:1px">${b}</span>`
     ).join(' ');
     html += `<tr class="${cls}"><td>${c}</td><td>${a.name}</td>`;
-    if (selectedBranch === '__all__' && branches.length > 1) {
-      html += `<td style="font-size:11px">${branchTags}</td>`;
-    }
+    if (showBranch) html += `<td style="font-size:11px">${branchTags}</td>`;
     html += `<td style="text-align:right">${formatKRW(Math.abs(amt))}</td>`;
     html += `<td><select class="${selCls}" data-code="${c}" onchange="onMapChange(this)"><option value="">-- 선택 --</option>${options}</select></td></tr>`;
   });
@@ -565,6 +626,12 @@ function renderMappingTable() {
 
 function switchBranchFilter(branch) {
   selectedBranch = branch;
+  renderMappingTable();
+}
+
+function toggleSort(col) {
+  if (sortCol === col) { sortAsc = !sortAsc; }
+  else { sortCol = col; sortAsc = true; }
   renderMappingTable();
 }
 
