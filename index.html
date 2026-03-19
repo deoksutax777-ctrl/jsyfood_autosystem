@@ -234,74 +234,161 @@ let savedMapping = null;
 let detectedYear = 2026;
 
 // ============================================================
-// AUTO MAP
+// AUTO MAP (3단계: 코드 정확매칭 → 코드 범위 → 키워드 fallback)
 // ============================================================
-function autoMap(code, name) {
-  const n = (name || '').toLowerCase();
-  const c = String(code);
 
-  // B/S accounts - exclude (but 153xx are COGS)
-  if (/^(10|11|12|14|20|21|22|23|24|25)/.test(c)) return '__제외__';
-  if (/^13[^5]/.test(c) || c === '13500') return '__제외__';
+// 1단계: 정확한 코드 매핑 (가장 우선, 가장 확실)
+const EXACT_CODE_MAP = {
+  // ── B/S (제외) ──
+  '10100':'__제외__','10300':'__제외__','10800':'__제외__',
+  '12501':'__제외__','12502':'__제외__','12504':'__제외__',
+  '13500':'__제외__',
+  '25100':'__제외__','25300':'__제외__','25400':'__제외__','25500':'__제외__',
+  // ── 매출원가 (재고자산) ──
+  '15301':'식자재매입','15302':'주류매입','15303':'기타식자재매입','15304':'기타주류매입',
+  '45400':'식자재매입',
+  // ── 수식 산출 항목 (제외) ──
+  '80600':'__제외__',  // 퇴직급여 = 급여/12
+  '83101':'__제외__',  // 카드수수료 = 매출*2.2%
+  // ── 인건비 ──
+  '80200':'급여','80300':'상여금','80500':'급여',
+  // ── 4대보험 (복리후생비 중 보험 성격) ──
+  '81101':'4대보험','81102':'4대보험','81103':'4대보험','81104':'4대보험','81105':'4대보험',
+  // ── 복리후생비 ──
+  '81110':'복리후생비','81111':'복리후생비','81112':'복리후생비','81113':'복리후생비',
+  '81114':'복리후생비','81115':'복리후생비','81116':'복리후생비','81199':'복리후생비',
+  // ── 통신비 ──
+  '81401':'통신비','81402':'통신비','81499':'통신비',
+  // ── 수도광열비 ──
+  '81501':'수도광열비','81502':'수도광열비','81503':'수도광열비','81599':'수도광열비',
+  // ── 세금과공과 ──
+  '81701':'세금과공과','81710':'세금과공과','81711':'세금과공과','81712':'세금과공과','81799':'세금과공과',
+  // ── 감가상각비 ──
+  '81800':'감가상각비','84000':'감가상각비',
+  // ── 임차료 ──
+  '81901':'임차료','81902':'임차료','81999':'임차료',
+  // ── 수선비 ──
+  '82001':'수선비','82002':'수선비','82003':'수선비','82004':'수선비','82099':'수선비',
+  // ── 보험료 ──
+  '82101':'보험료','82102':'보험료','82103':'보험료','82104':'보험료','82110':'보험료','82199':'보험료',
+  // ── 운반비 ──
+  '82400':'운반비',
+  // ── 여비교통비 / 업무추진비 ──
+  '81200':'여비교통비','81300':'업무추진비',
+  // ── 소모품 ──
+  '83001':'매장소모품','83002':'매장소모품','83003':'매장소모품','83004':'매장소모품',
+  '83005':'매장소모품','83006':'매장소모품','83007':'매장소모품','83008':'매장소모품','83099':'매장소모품',
+  // ── 지급수수료 세부 ──
+  '83102':'지급수수료','83103':'로열티','83104':'방역대행',
+  '83105':'지급수수료','83106':'세무대행','83107':'불판세척',
+  '83108':'전산비용','83109':'세무대행','83110':'지급수수료',
+  '83111':'방역대행','83112':'전산비용','83113':'청소대행',
+  '83114':'채용수수료','83115':'폐기물처리','83116':'노무대행',
+  '83117':'임차료',  // 렌탈 → 임차료
+  '83118':'지급수수료','83119':'지급수수료','83120':'금융수수료',
+  '83121':'지급수수료','83122':'금융수수료','83199':'지급수수료',
+  // ── 광고비 ──
+  '83301':'광고비','83302':'광고비','83303':'광고비','83399':'광고비',
+  // ── 관리비 ──
+  '83700':'관리비',
+  // ── 영업외 ──
+  '90100':'__영업외__','93000':'__영업외__','93100':'__영업외__','93300':'__영업외__',
+  '96000':'__영업외__','96200':'__영업외__',
+};
 
-  // Inventory → COGS
-  if (/^153/.test(c)) {
-    if (n.includes('기타') && (n.includes('주류') || n.includes('배달'))) return '기타주류매입';
-    if (n.includes('주류') || n.includes('배달')) return '주류매입';
-    if (n.includes('기타')) return '기타식자재매입';
-    return '식자재매입';
-  }
-  if (/^45/.test(c)) return '식자재매입';
-
-  // Revenue
-  if (/^4[0-4]/.test(c)) return '매장매출';
-
-  // SGA by keyword
-  if ((n.includes('급여') || n.includes('임금') || n.includes('잡급')) && !n.includes('퇴직')) return '급여';
-  if (n.includes('상여')) return '상여금';
-  if (n.includes('퇴직')) return '__제외__';  // 퇴직급여는 급여/12 수식으로 산출
-  if (n.includes('건강보험') || n.includes('국민연금') || n.includes('고용보험') || n.includes('산재') || n.includes('장기요양')) return '4대보험';
-  if (/^811[0-9]{2}$/.test(c) && c !== '81110' && !n.includes('식대') && !n.includes('복리')) return '4대보험';
-  if (n.includes('복리후생') || n.includes('식대') || n.includes('경조') || n.includes('회식')) return '복리후생비';
-  if (n.includes('소모품') || (n.includes('매장') && !n.includes('임차') && !n.includes('임대'))) return '매장소모품';
-  if (n.includes('운반')) return '운반비';
-  if (/^824/.test(c)) return '운반비';
-  if (n.includes('수선')) return '수선비';
-  if (n.includes('여비') || n.includes('교통')) return '여비교통비';
-  if (n.includes('도서') || n.includes('인쇄') || n.includes('신문')) return '도서인쇄비';
-  if (n.includes('지급수수료') && !n.includes('카드') && !n.includes('로열티') && !n.includes('청소') && !n.includes('세무') && !n.includes('방역') && !n.includes('노무') && !n.includes('불판') && !n.includes('전산') && !n.includes('폐기물') && !n.includes('채용') && !n.includes('금융') && !n.includes('배달') && !n.includes('렌탈')) return '지급수수료';
-  if (n.includes('보험') && !n.includes('4대') && !n.includes('건강') && !n.includes('국민') && !n.includes('고용') && !n.includes('산재') && !n.includes('장기')) return '보험료';
-  if (/^82[1]/.test(c)) return '보험료';
-  if (n.includes('업무추진') || n.includes('접대') || n.includes('교제')) return '업무추진비';
-  if (n.includes('세금') || n.includes('공과') || n.includes('주민세') || n.includes('면허세') || n.includes('재산세') || n.includes('인지세') || n.includes('원천')) return '세금과공과';
-  if (/^817/.test(c)) return '세금과공과';
-  if (n.includes('채용')) return '채용수수료';
-  if (n.includes('청소')) return '청소대행';
-  if (n.includes('로열티') || n.includes('royalty')) return '로열티';
-  if (n.includes('임차') || n.includes('임대') || n.includes('월세') || n.includes('렌탈') || n.includes('렌트') || n.includes('리스')) return '임차료';
-  if (/^819/.test(c)) return '임차료';
-  if (n.includes('불판') || n.includes('세척')) return '불판세척';
-  if (n.includes('전산') || n.includes('pos') || n.includes('POS') || n.includes('배달송출')) return '전산비용';
-  if (n.includes('광고') || n.includes('판촉') || n.includes('선전')) return '광고비';
-  if (/^833/.test(c)) return '광고비';
-  if (n.includes('세무') || n.includes('회계')) return '세무대행';
-  if (n.includes('수도') || n.includes('전기') || n.includes('가스') || n.includes('광열') || n.includes('도시가스')) return '수도광열비';
-  if (/^815/.test(c)) return '수도광열비';
-  if (n.includes('통신') || n.includes('전화') || n.includes('인터넷')) return '통신비';
-  if (/^814/.test(c)) return '통신비';
-  if (n.includes('금융') && n.includes('수수료')) return '금융수수료';
-  if (n.includes('관리비') || n.includes('건물관리')) return '관리비';
-  if (n.includes('폐기물')) return '폐기물처리';
-  if (n.includes('노무')) return '노무대행';
-  if (n.includes('방역')) return '방역대행';
-  if (n.includes('카드') && n.includes('수수료')) return '__제외__';  // 카드수수료는 매출*2.2% 수식으로 산출
-  if (c === '83101') return '__제외__';  // 카드수수료 제외
-  if (n.includes('감가상각')) return '감가상각비';
-  if (/^818/.test(c)) return '감가상각비';
-  if (n.includes('배달') && !n.includes('매입')) return '운반비';
-
+// 2단계: 코드 범위 매핑 (정확 매칭에 없을 때)
+const PREFIX_RULES = [
+  // B/S 제외
+  { regex: /^(10|11|12|13|14|20|21|22|23|24|25)/, target: '__제외__' },
+  // 매출
+  { regex: /^4[0-4]/, target: '매장매출' },
+  // 매출원가
+  { regex: /^45/, target: '식자재매입' },
+  { regex: /^153/, target: '식자재매입' },
+  // 인건비
+  { regex: /^80[23]/, target: '급여' },
+  { regex: /^805/, target: '급여' },
+  { regex: /^806/, target: '__제외__' },  // 퇴직급여
+  // 복리후생비/4대보험
+  { regex: /^811[0-5]/, target: '4대보험' },
+  { regex: /^811/, target: '복리후생비' },
+  // 통신비/수도광열비/세금/감가상각/임차료
+  { regex: /^814/, target: '통신비' },
+  { regex: /^815/, target: '수도광열비' },
+  { regex: /^817/, target: '세금과공과' },
+  { regex: /^818/, target: '감가상각비' },
+  { regex: /^819/, target: '임차료' },
+  // 수선비/보험료/운반비
+  { regex: /^820/, target: '수선비' },
+  { regex: /^821/, target: '보험료' },
+  { regex: /^824/, target: '운반비' },
+  // 소모품
+  { regex: /^830/, target: '매장소모품' },
+  // 지급수수료 (세부 미분류 시)
+  { regex: /^831/, target: '지급수수료' },
+  // 광고비
+  { regex: /^833/, target: '광고비' },
+  // 관리비
+  { regex: /^837/, target: '관리비' },
   // 영업외
-  if (/^9/.test(c)) return '__영업외__';
+  { regex: /^9/, target: '__영업외__' },
+];
+
+// 3단계: 키워드 매칭 (1,2단계 모두 실패 시 최후 수단)
+const KEYWORD_RULES = [
+  // 순서 중요: 구체적인 것 먼저
+  { keywords: ['급여','임금','잡급'], exclude: ['퇴직'], target: '급여' },
+  { keywords: ['상여'], target: '상여금' },
+  { keywords: ['퇴직'], target: '__제외__' },
+  { keywords: ['건강보험','국민연금','고용보험','산재보험','장기요양'], target: '4대보험' },
+  { keywords: ['식대','복리후생','경조','회식'], target: '복리후생비' },
+  { keywords: ['소모품'], target: '매장소모품' },
+  { keywords: ['수선'], target: '수선비' },
+  { keywords: ['여비','교통'], target: '여비교통비' },
+  { keywords: ['도서','인쇄'], target: '도서인쇄비' },
+  { keywords: ['업무추진','접대','교제'], target: '업무추진비' },
+  { keywords: ['세금','공과','주민세','면허세','재산세','인지세'], target: '세금과공과' },
+  { keywords: ['채용'], target: '채용수수료' },
+  { keywords: ['청소대행','청소'], target: '청소대행' },
+  { keywords: ['로열티','royalty'], target: '로열티' },
+  { keywords: ['임차','임대','월세','렌탈','렌트','리스'], target: '임차료' },
+  { keywords: ['불판','세척'], target: '불판세척' },
+  { keywords: ['전산','pos','POS','배달송출'], target: '전산비용' },
+  { keywords: ['세무대행','세무','회계대행'], target: '세무대행' },
+  { keywords: ['수도','전기요금','가스요금','광열','도시가스'], target: '수도광열비' },
+  { keywords: ['통신','전화','인터넷'], target: '통신비' },
+  { keywords: ['금융수수료'], target: '금융수수료' },
+  { keywords: ['관리비','건물관리'], target: '관리비' },
+  { keywords: ['폐기물'], target: '폐기물처리' },
+  { keywords: ['노무'], target: '노무대행' },
+  { keywords: ['방역'], target: '방역대행' },
+  { keywords: ['카드수수료'], target: '__제외__' },
+  { keywords: ['감가상각'], target: '감가상각비' },
+  { keywords: ['운반','배달'], exclude: ['매입','식자재','주류'], target: '운반비' },
+  { keywords: ['광고','판촉','선전'], target: '광고비' },
+  { keywords: ['보험'], exclude: ['건강','국민','고용','산재','장기','4대'], target: '보험료' },
+];
+
+function autoMap(code, name) {
+  const c = String(code).trim();
+  const n = (name || '').toLowerCase();
+
+  // ── 1단계: 정확한 코드 매칭 (가장 확실) ──
+  if (EXACT_CODE_MAP[c] !== undefined) return EXACT_CODE_MAP[c];
+
+  // ── 2단계: 코드 범위 매핑 ──
+  for (const rule of PREFIX_RULES) {
+    if (rule.regex.test(c)) return rule.target;
+  }
+
+  // ── 3단계: 키워드 매칭 (최후 수단) ──
+  for (const rule of KEYWORD_RULES) {
+    const hasKeyword = rule.keywords.some(k => n.includes(k.toLowerCase()));
+    if (!hasKeyword) continue;
+    const excluded = rule.exclude ? rule.exclude.some(e => n.includes(e.toLowerCase())) : false;
+    if (excluded) continue;
+    return rule.target;
+  }
 
   return null;
 }
