@@ -643,9 +643,9 @@ function renderMappingTable() {
   html += '<table><thead><tr>';
   html += `<th class="sortable" onclick="toggleSort('code')">코드${si('code')}</th>`;
   html += `<th class="sortable" onclick="toggleSort('name')">계정명${si('name')}</th>`;
+  html += `<th class="sortable" onclick="toggleSort('mapping')" style="min-width:180px">→ 매핑항목${si('mapping')}</th>`;
   if (showBranch) html += '<th>지점</th>';
   html += `<th class="sortable" style="text-align:right" onclick="toggleSort('amount')">발생금액${si('amount')}</th>`;
-  html += `<th class="sortable" onclick="toggleSort('mapping')" style="min-width:180px">→ 매핑항목${si('mapping')}</th>`;
   html += '</tr></thead><tbody>';
 
   codes.forEach(c => {
@@ -658,9 +658,9 @@ function renderMappingTable() {
       `<span style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-size:11px;margin:1px">${b}</span>`
     ).join(' ');
     html += `<tr class="${cls}"><td>${c}</td><td>${a.name}</td>`;
+    html += `<td><select class="${selCls}" data-code="${c}" onchange="onMapChange(this)"><option value="">-- 선택 --</option>${options}</select></td>`;
     if (showBranch) html += `<td style="font-size:11px">${branchTags}</td>`;
-    html += `<td style="text-align:right">${formatKRW(Math.abs(amt))}</td>`;
-    html += `<td><select class="${selCls}" data-code="${c}" onchange="onMapChange(this)"><option value="">-- 선택 --</option>${options}</select></td></tr>`;
+    html += `<td style="text-align:right">${formatKRW(Math.abs(amt))}</td></tr>`;
   });
   html += '</tbody></table>';
   document.getElementById('mappingTableWrap').innerHTML = html;
