@@ -150,6 +150,14 @@ th.sortable:hover { color:var(--accent); }
         </div>
         <input type="file" id="mappingInput" accept=".json" style="display:none">
         <div id="mappingStatus" style="margin-top:8px;font-size:0.82rem;"></div>
+
+        <div class="mapping-upload-zone" id="dataJsonZone" style="margin-top:12px;border-color:var(--gold)">
+          <div style="font-size:1.5rem;margin-bottom:8px;">📊</div>
+          <p style="font-size:0.85rem;color:var(--text-dim)"><strong style="color:var(--gold)">이전 월 데이터 불러오기</strong> (선택)</p>
+          <p style="font-size:0.78rem;color:var(--text-dim);margin-top:4px">이전에 저장한 데이터 JSON을 불러오면 누적 손익계산서 생성</p>
+        </div>
+        <input type="file" id="dataJsonInput" accept=".json" style="display:none">
+        <div id="dataJsonStatus" style="margin-top:8px;font-size:0.82rem;"></div>
       </div>
     </div>
     <div class="btn-group">
@@ -176,6 +184,7 @@ th.sortable:hover { color:var(--accent); }
     <div class="btn-group">
       <button class="btn btn-secondary" id="btnBackTo2">← 이전</button>
       <button class="btn btn-success" id="btnGenerate">📥 엑셀 생성 및 다운로드</button>
+      <button class="btn btn-secondary" id="btnSaveData" style="background:var(--gold);color:#111;border:none">💾 데이터 저장 (JSON)</button>
     </div>
   </div>
 </div>
@@ -231,6 +240,7 @@ const SPECIAL = ['__제외__', '__영업외__'];
 let uploadedFiles = {}; // branchName -> { file, data: [{date,num,type,code,account,debit,credit,vendor,vendorCode,desc}] }
 let accountMap = {};    // code -> { name, totalAmt, mapping }
 let savedMapping = null;
+let savedDataJson = null; // 이전 월 누적 데이터 { branchName: { month: { row: value } } }
 let detectedYear = 2026;
 
 // ============================================================
@@ -458,6 +468,106 @@ mappingZone.addEventListener('drop', e => {
   if (e.dataTransfer.files[0]) loadMappingFile(e.dataTransfer.files[0]);
 });
 mappingInput.addEventListener('change', e => { if (e.target.files[0]) loadMappingFile(e.target.files[0]); });
+
+// 데이터 JSON 업로드
+const dataJsonZone = document.getElementById('dataJsonZone');
+const dataJsonInput = document.getElementById('dataJsonInput');
+dataJsonZone.addEventListener('click', () => dataJsonInput.click());
+dataJsonZone.addEventListener('dragover', e => { e.preventDefault(); dataJsonZone.classList.add('dragover'); });
+dataJsonZone.addEventListener('dragleave', () => dataJsonZone.classList.remove('dragover'));
+dataJsonZone.addEventListener('drop', e => {
+  e.preventDefault(); dataJsonZone.classList.remove('dragover');
+  if (e.dataTransfer.files[0]) loadDataJson(e.dataTransfer.files[0]);
+});
+dataJsonInput.addEventListener('change', e => { if (e.target.files[0]) loadDataJson(e.target.files[0]); });
+
+function loadDataJson(f) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const obj = JSON.parse(e.target.result);
+      if (obj.type !== 'data' || !obj.data) throw new Error('올바른 데이터 JSON이 아닙니다');
+      savedDataJson = obj.data;
+      const months = obj.savedMonths || [];
+      const branchCount = Object.keys(obj.data).length;
+      const monthLabel = months.map(m => m.replace(/^\d{4}-0?/, '') + '월').join(', ');
+      document.getElementById('dataJsonStatus').innerHTML =
+        `<span style="color:var(--gold)">✓ 데이터 로드: ${branchCount}개 지점 · ${monthLabel}</span>`;
+    } catch (err) {
+      alert('데이터 JSON 오류: ' + err.message);
+    }
+  };
+  reader.readAsText(f);
+}
+
+// 데이터 JSON 저장
+document.getElementById('btnSaveData').addEventListener('click', saveDataJson);
+
+function saveDataJson() {
+  const branches = Object.keys(uploadedFiles).sort();
+  if (branches.length === 0) { alert('분개장을 먼저 업로드하세요.'); return; }
+
+  // 기존 데이터 병합
+  const data = savedDataJson ? JSON.parse(JSON.stringify(savedDataJson)) : {};
+  const allMonths = new Set();
+
+  // 이전 데이터의 월
+  if (savedDataJson) {
+    for (const bd of Object.values(savedDataJson)) {
+      for (const m of Object.keys(bd)) allMonths.add(m);
+    }
+  }
+
+  // 현재 분개장에서 선택된 월의 값 계산
+  for (const branch of branches) {
+    if (!data[branch]) data[branch] = {};
+    const rows = uploadedFiles[branch].data;
+
+    for (const monthNum of selectedMonths) {
+      const monthKey = `${detectedYear}-${String(monthNum).padStart(2, '0')}`;
+      allMonths.add(monthKey);
+      const monthRows = rows.filter(r => r.date instanceof Date && (r.date.getMonth() + 1) === monthNum);
+      if (monthRows.length === 0) continue;
+
+      const vals = {};
+      // 매출/원가/판관비 집계 (행별)
+      for (const target of EVAL_TARGETS) {
+        if (target.type === 'calc') continue;
+        let sum = 0;
+        monthRows.forEach(r => {
+          const m = accountMap[r.code]?.mapping;
+          if (m !== target.label) return;
+          if (target.type === 'revenue') sum += (r.credit - r.debit);
+          else sum += (r.debit - r.credit);
+        });
+        if (sum !== 0) vals[target.row] = Math.round(sum);
+      }
+
+      // 수식 산출 항목
+      const salary = (vals[15] || 0) + (vals[16] || 0); // 급여+상여
+      vals[18] = Math.round(salary / 12); // 퇴직급여
+      const rev = vals[5] || 0;
+      vals[44] = Math.round(rev * 0.022); // 카드수수료
+
+      data[branch][monthKey] = vals;
+    }
+  }
+
+  const saveObj = {
+    version: '1.0',
+    type: 'data',
+    savedAt: new Date().toISOString(),
+    savedMonths: [...allMonths].sort(),
+    data
+  };
+  const blob = new Blob([JSON.stringify(saveObj, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  const monthsLabel = [...selectedMonths].sort((a,b)=>a-b).map(m => m+'월').join('_');
+  a.download = `손익데이터_${detectedYear}년_${monthsLabel}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
 
 function handleJournalFiles(files) {
   for (const f of files) {
@@ -1450,15 +1560,33 @@ function buildEvalSheet(ws, branch, jSheetName, year) {
   // === 1월 하드코드 적용 ===
   const hc = findJanHardcode(branch);
   if (hc) {
-    // Row 5-46: overwrite D column (1월) with hardcoded values
     for (const [rowStr, val] of Object.entries(hc)) {
       const rowNum = parseInt(rowStr);
-      const cell = ws.getRow(rowNum).getCell(4); // D column = 1월
-      cell.value = Math.round(val);
-      // Keep existing style
+      ws.getRow(rowNum).getCell(4).value = Math.round(val); // D column = 1월
     }
-    // 소계/합계 행(7, 13, 14, 48, 49, 50)은 수식이므로 덮어쓰지 않음.
-    // 하드코드된 숫자값을 기반으로 수식이 자동 재계산됨.
+  }
+
+  // === 데이터 JSON 하드코드 적용 (이전 월 누적) ===
+  if (savedDataJson) {
+    // 지점명 유연 매칭
+    let branchData = null;
+    for (const [key, val] of Object.entries(savedDataJson)) {
+      if (key === branch || key.includes(branch) || branch.includes(key)) {
+        branchData = val; break;
+      }
+    }
+    if (branchData) {
+      for (const [monthKey, rowVals] of Object.entries(branchData)) {
+        const monthNum = parseInt(monthKey.split('-')[1]);
+        if (monthNum < 1 || monthNum > 12) continue;
+        if (monthNum === 1) continue; // 1월은 JAN_HARDCODE가 처리
+        const col = 3 + monthNum; // 2월=E(5), 3월=F(6), ...
+        for (const [rowStr, val] of Object.entries(rowVals)) {
+          const rowNum = parseInt(rowStr);
+          ws.getRow(rowNum).getCell(col).value = Math.round(val);
+        }
+      }
+    }
   }
 
   // === 전체 테두리 및 레이아웃 정리 (group outer-frame) ===
