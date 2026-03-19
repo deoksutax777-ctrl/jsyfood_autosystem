@@ -274,7 +274,7 @@ function autoMap(code, name) {
   if (n.includes('채용')) return '채용수수료';
   if (n.includes('청소')) return '청소대행';
   if (n.includes('로열티') || n.includes('royalty')) return '로열티';
-  if (n.includes('임차') || n.includes('임대') || n.includes('월세')) return '임차료';
+  if (n.includes('임차') || n.includes('임대') || n.includes('월세') || n.includes('렌탈') || n.includes('렌트') || n.includes('리스')) return '임차료';
   if (/^819/.test(c)) return '임차료';
   if (n.includes('불판') || n.includes('세척')) return '불판세척';
   if (n.includes('전산') || n.includes('pos') || n.includes('POS') || n.includes('배달송출')) return '전산비용';
@@ -289,7 +289,7 @@ function autoMap(code, name) {
   if (n.includes('관리비') || n.includes('건물관리')) return '관리비';
   if (n.includes('폐기물')) return '폐기물처리';
   if (n.includes('노무')) return '노무대행';
-  if (n.includes('방역') || n.includes('렌탈')) return '방역대행';
+  if (n.includes('방역')) return '방역대행';
   if (n.includes('카드') && n.includes('수수료')) return '__제외__';  // 카드수수료는 매출*2.2% 수식으로 산출
   if (c === '83101') return '__제외__';  // 카드수수료 제외
   if (n.includes('감가상각')) return '감가상각비';
