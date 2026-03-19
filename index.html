@@ -719,12 +719,22 @@ document.getElementById('btnSaveMapping').addEventListener('click', () => {
 // ============================================================
 function buildSummary() {
   const cards = document.getElementById('summaryCards');
-  let html = '';
+  const selMonthsArr = [...selectedMonths].sort((a, b) => a - b);
+  const monthLabel = selMonthsArr.length === 12 ? '연간' :
+    selMonthsArr.length === 1 ? selMonthsArr[0] + '월' :
+    selMonthsArr.map(m => m + '월').join(', ');
+
+  let html = `<div style="margin-bottom:12px;font-size:0.85rem;color:var(--text-dim)">📅 집계 기간: <strong style="color:var(--accent)">${monthLabel}</strong></div>`;
   const branches = Object.keys(uploadedFiles).sort();
   for (const branch of branches) {
     const data = uploadedFiles[branch].data;
     let revenue = 0, cogs = 0, sga = 0;
     data.forEach(r => {
+      // 선택된 월만 집계
+      if (r.date instanceof Date && selectedMonths.size > 0) {
+        const m = r.date.getMonth() + 1;
+        if (!selectedMonths.has(m)) return;
+      }
       const m = accountMap[r.code]?.mapping;
       if (!m || m === '__제외__' || m === '__영업외__') return;
       const target = EVAL_TARGETS.find(t => t.label === m);
