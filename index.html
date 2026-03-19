@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>F&B 손익현황 생성기 (점장평가용)</title>
+<title>손익현황 생성기 (점장평가용)</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
@@ -107,26 +107,51 @@ th.sortable:hover { color:var(--accent); }
 /* Warn */
 .warn-box { background:#3d3520; border:1px solid var(--gold); border-radius:8px; padding:12px 16px; font-size:0.82rem; margin-top:12px; color:var(--gold); }
 
+/* Company selection */
+.company-select { display:flex; gap:24px; justify-content:center; align-items:center; min-height:50vh; flex-wrap:wrap; }
+.company-card { background:var(--surface); border:2px solid var(--border); border-radius:16px; padding:48px 40px; text-align:center; cursor:pointer; transition:all .25s; width:320px; }
+.company-card:hover { border-color:var(--accent); background:var(--surface2); transform:translateY(-4px); box-shadow:0 8px 24px rgba(79,140,255,0.15); }
+.company-card .icon { font-size:3rem; margin-bottom:16px; }
+.company-card .name { font-size:1.2rem; font-weight:700; margin-bottom:6px; }
+.company-card .desc { font-size:0.85rem; color:var(--text-dim); }
+
 /* Responsive */
 @media(max-width:768px) {
   .steps { flex-direction:column; }
   .row-flex { flex-direction:column; }
+  .company-select { flex-direction:column; align-items:center; }
 }
 </style>
 </head>
 <body>
 <div class="container">
-  <h1>F&B 손익현황 생성기</h1>
-  <p class="subtitle">분개장 업로드 → 계정 분류 → 점장평가용 엑셀 생성</p>
+  <h1 id="mainTitle">손익현황 생성기</h1>
+  <p class="subtitle" id="mainSubtitle">회사를 선택하세요</p>
 
-  <div class="steps">
+  <div class="steps" id="stepsBar" style="display:none">
     <div class="step-indicator active" id="si1"><span class="num">1</span>분개장 업로드</div>
     <div class="step-indicator" id="si2"><span class="num">2</span>계정 분류</div>
     <div class="step-indicator" id="si3"><span class="num">3</span>엑셀 생성</div>
   </div>
 
+  <!-- STEP 0: Company Selection -->
+  <div class="panel active" id="panel0">
+    <div class="company-select">
+      <div class="company-card" onclick="selectCompany('fnb')">
+        <div class="icon">🍖</div>
+        <div class="name">F&B</div>
+        <div class="desc">제이에쓰에프앤비</div>
+      </div>
+      <div class="company-card" onclick="selectCompany('invest')">
+        <div class="icon">🏢</div>
+        <div class="name">인베스트먼트</div>
+        <div class="desc">제이에스인베스트먼트</div>
+      </div>
+    </div>
+  </div>
+
   <!-- STEP 1 -->
-  <div class="panel active" id="panel1">
+  <div class="panel" id="panel1">
     <div class="row-flex">
       <div>
         <div class="upload-zone" id="journalZone">
@@ -161,6 +186,7 @@ th.sortable:hover { color:var(--accent); }
       </div>
     </div>
     <div class="btn-group">
+      <button class="btn btn-secondary" onclick="goStep(0)">← 회사 선택</button>
       <button class="btn btn-primary" id="btnToStep2" disabled>다음: 계정 분류 →</button>
     </div>
   </div>
@@ -193,48 +219,238 @@ th.sortable:hover { color:var(--accent); }
 // ============================================================
 // DATA
 // ============================================================
-const EVAL_TARGETS = [
-  { label: '매장매출', row: 5, type: 'revenue' },
-  // row 6 empty
-  { label: '식자재매입', row: 8, type: 'cogs' },
-  { label: '주류매입', row: 9, type: 'cogs' },
-  { label: '기타식자재매입', row: 10, type: 'cogs' },
-  { label: '기타주류매입', row: 11, type: 'cogs' },
-  { label: '급여', row: 15, type: 'sga' },
-  { label: '상여금', row: 16, type: 'sga' },
-  { label: '4대보험', row: 17, type: 'sga' },
-  { label: '퇴직급여', row: 18, type: 'calc' },  // =급여/12
-  { label: '복리후생비', row: 19, type: 'sga' },
-  { label: '매장소모품', row: 20, type: 'sga' },
-  { label: '운반비', row: 21, type: 'sga' },
-  { label: '수선비', row: 22, type: 'sga' },
-  { label: '여비교통비', row: 23, type: 'sga' },
-  { label: '도서인쇄비', row: 24, type: 'sga' },
-  { label: '지급수수료', row: 25, type: 'sga' },
-  { label: '보험료', row: 26, type: 'sga' },
-  { label: '업무추진비', row: 27, type: 'sga' },
-  { label: '세금과공과', row: 28, type: 'sga' },
-  { label: '채용수수료', row: 29, type: 'sga' },
-  { label: '청소대행', row: 30, type: 'sga' },
-  { label: '로열티', row: 31, type: 'sga' },
-  { label: '임차료', row: 32, type: 'sga' },
-  { label: '불판세척', row: 33, type: 'sga' },
-  { label: '전산비용', row: 34, type: 'sga' },
-  { label: '광고비', row: 35, type: 'sga' },
-  { label: '세무대행', row: 36, type: 'sga' },
-  { label: '수도광열비', row: 37, type: 'sga' },
-  { label: '통신비', row: 38, type: 'sga' },
-  { label: '금융수수료', row: 39, type: 'sga' },
-  { label: '관리비', row: 40, type: 'sga' },
-  { label: '폐기물처리', row: 41, type: 'sga' },
-  { label: '노무대행', row: 42, type: 'sga' },
-  { label: '방역대행', row: 43, type: 'sga' },
-  { label: '카드수수료', row: 44, type: 'calc' },  // =매출*2.2%
-  { label: '감가상각비', row: 45, type: 'sga' },
-];
+let currentCompany = null; // 'fnb' or 'invest'
 
-const TARGET_LABELS = EVAL_TARGETS.filter(t => t.type !== 'calc').map(t => t.label);
+const COMPANY_CONFIG = {
+  fnb: {
+    name: '제이에쓰에프앤비',
+    shortName: 'F&B',
+    evalTargets: [
+      { label: '매장매출', row: 5, type: 'revenue' },
+      { label: '식자재매입', row: 8, type: 'cogs' },
+      { label: '주류매입', row: 9, type: 'cogs' },
+      { label: '기타식자재매입', row: 10, type: 'cogs' },
+      { label: '기타주류매입', row: 11, type: 'cogs' },
+      { label: '급여', row: 15, type: 'sga' },
+      { label: '상여금', row: 16, type: 'sga' },
+      { label: '4대보험', row: 17, type: 'sga' },
+      { label: '퇴직급여', row: 18, type: 'calc' },
+      { label: '복리후생비', row: 19, type: 'sga' },
+      { label: '매장소모품', row: 20, type: 'sga' },
+      { label: '운반비', row: 21, type: 'sga' },
+      { label: '수선비', row: 22, type: 'sga' },
+      { label: '여비교통비', row: 23, type: 'sga' },
+      { label: '도서인쇄비', row: 24, type: 'sga' },
+      { label: '지급수수료', row: 25, type: 'sga' },
+      { label: '보험료', row: 26, type: 'sga' },
+      { label: '업무추진비', row: 27, type: 'sga' },
+      { label: '세금과공과', row: 28, type: 'sga' },
+      { label: '채용수수료', row: 29, type: 'sga' },
+      { label: '청소대행', row: 30, type: 'sga' },
+      { label: '로열티', row: 31, type: 'sga' },
+      { label: '임차료', row: 32, type: 'sga' },
+      { label: '불판세척', row: 33, type: 'sga' },
+      { label: '전산비용', row: 34, type: 'sga' },
+      { label: '광고비', row: 35, type: 'sga' },
+      { label: '세무대행', row: 36, type: 'sga' },
+      { label: '수도광열비', row: 37, type: 'sga' },
+      { label: '통신비', row: 38, type: 'sga' },
+      { label: '금융수수료', row: 39, type: 'sga' },
+      { label: '관리비', row: 40, type: 'sga' },
+      { label: '폐기물처리', row: 41, type: 'sga' },
+      { label: '노무대행', row: 42, type: 'sga' },
+      { label: '방역대행', row: 43, type: 'sga' },
+      { label: '카드수수료', row: 44, type: 'calc' },
+      { label: '감가상각비', row: 45, type: 'sga' },
+    ],
+    calcItems: {
+      18: { label: '퇴직급여', formula: cl => `${cl}15/12` },
+      44: { label: '카드수수료', formula: cl => `${cl}7*0.022` },
+    },
+    calcDataJson: (vals) => {
+      const salary = (vals[15] || 0) + (vals[16] || 0);
+      vals[18] = Math.round(salary / 12);
+      const rev = vals[5] || 0;
+      vals[44] = Math.round(rev * 0.022);
+    },
+    revenueSubtotalRow: 7,
+    revenueRows: [5, 6],
+    cogsStartRow: 8,
+    cogsEndRow: 12,
+    cogsSubtotalRow: 13,
+    grossProfitRow: 14,
+    sgaStartRow: 15,
+    sgaEndRow: 47,
+    sgaSubtotalRow: 48,
+    operatingRow: 49,
+    ratioRow: 50,
+    reserveRow: 46,
+    emptyBeforeSgaSubtotal: [47],
+    section2StartRow: 52,
+    section2: {
+      headerRows: [52, 53],
+      rows: [
+        { row: 54, b: '매출액', c: '', formula: cl => `+${cl}7`, style: 'revenue' },
+        { row: 55, b: '매출원가', c: '식자재', formula: cl => `+${cl}8` },
+        { row: 56, b: '', c: '주류', formula: cl => `+${cl}9` },
+        { row: 57, b: '', c: '기타', formula: cl => `+${cl}10+${cl}11` },
+        { row: 58, b: '', c: '소계', formula: cl => `SUM(${cl}55:${cl}57)`, style: 'subtotal' },
+        { row: 59, b: '매출총이익', c: '', formula: cl => `${cl}54-${cl}58`, style: 'bold' },
+        { row: 60, b: '인건비', c: '급여', formula: cl => `+${cl}15+${cl}16` },
+        { row: 61, b: '', c: '4대보험', formula: cl => `+${cl}17` },
+        { row: 62, b: '', c: '퇴직금', formula: cl => `+${cl}18` },
+        { row: 63, b: '', c: '소계', formula: cl => `SUM(${cl}60:${cl}62)`, style: 'subtotal' },
+        { row: 64, b: '경비', c: '임차료', formula: cl => `+${cl}32` },
+        { row: 65, b: '', c: '관리비', formula: cl => `+${cl}40` },
+        { row: 66, b: '', c: '수도광열비', formula: cl => `+${cl}37` },
+        { row: 67, b: '', c: '광고비', formula: cl => `+${cl}35` },
+        { row: 68, b: '', c: '매장소모품', formula: cl => `+${cl}20` },
+        { row: 69, b: '', c: '예비비', formula: cl => `+${cl}46` },
+        { row: 70, b: '', c: '상각비', formula: cl => `+${cl}45` },
+        { row: 71, b: '', c: '기타', formula: cl => `+${cl}48-SUM(${cl}63:${cl}70)` },
+        { row: 72, b: '', c: '소계', formula: cl => `SUM(${cl}64:${cl}71)`, style: 'subtotal' },
+        { row: 73, b: '영업이익', c: '', formula: cl => `${cl}59-${cl}63-${cl}72`, style: 'highlight' },
+      ],
+    },
+    section3StartRow: 75,
+    section3: {
+      headerRows: [75, 76],
+      refStartRow: 54,
+      dataStartRow: 77,
+    },
+    // Border groups for section 1
+    sec1Groups: [
+      { start: 5, end: 7, subtotalRow: 7 },
+      { start: 8, end: 13, subtotalRow: 13 },
+      { start: 14, end: 14, standalone: true },
+      { start: 15, end: 48, subtotalRow: 48 },
+      { start: 49, end: 50, standalone: true },
+    ],
+    janHardcode: {
+      '영등포': {5:225168329,8:95039953,9:8434253,10:1602727,11:762117,15:40965087,16:2837853,17:3728665,18:3581078,19:190000,20:1005890,22:1180000,26:96000,28:94500,29:220000,30:158200,31:6755036,32:11500000,33:577600,34:1414133,36:200000,37:4087279,38:52704,41:329400,43:50000,44:4953703},
+      '남영': {5:128922681,8:52406234,9:3805860,10:894546,11:605010,15:27987250,16:2753487,17:2278320,18:2489645,19:239900,20:273500,26:79760,28:27000,30:89400,31:3867676,32:12000000,33:387000,34:507370,36:200000,37:1561843,38:34056,40:300000,41:224400,43:50000,44:2836299},
+      '서울대': {5:132823984,8:55926885,9:2900265,10:987727,11:484604,15:29058898,16:2753485,17:1879110,18:2395278,19:626300,20:727133,22:49500,26:102150,28:27000,30:40000,31:4196608,32:16419000,33:364000,34:989235,36:200000,37:1354228,38:42997,40:1400000,41:171900,43:50000,44:2922128},
+      '교대': {5:124985181,8:53076199,9:3892105,10:763636,11:421310,15:30638000,16:2433299,17:2627645,18:2642233,19:30640,20:953908,22:77000,26:233030,28:27000,30:99400,31:3749552,32:10800000,33:350000,34:650864,36:200000,37:1618068,38:47647,40:3951316,43:50000,44:2749674},
+      '홍대': {5:80801864,8:27450397,9:1689400,10:818181,11:478671,15:18796417,17:1051160,18:1566368,19:116800,20:335936,26:111710,28:27000,30:129300,31:2217998,32:10205393,33:246000,34:701995,36:200000,37:2524857,38:40095,41:227800,43:50000,44:1777641},
+      '선릉': {5:129772520,8:58180306,9:4514300,10:909091,11:324508,15:30978761,16:4798057,17:2198865,18:2855568,19:88970,20:265020,26:124100,28:40500,30:709000,31:3966424,32:12000000,33:308000,34:2322959,36:200000,37:2332590,38:41317,40:1000000,41:278800,43:50000,44:2854995},
+      '송도': {5:112333218,8:42757763,9:1594330,10:727273,11:439170,15:24481000,16:3445492,17:1822080,18:2095458,19:72500,20:423718,26:141500,28:27000,30:160900,31:3096584,32:8500000,33:300000,34:2230614,36:200000,37:806265,38:48383,40:2751866,41:142400,43:50000,44:2471331},
+      '왕십리': {5:173179643,8:76289240,9:3450500,10:1454545,11:802519,15:39137900,16:4389140,17:2993910,18:3543920,19:398480,20:1268473,26:138680,28:27000,29:527273,30:450000,31:5429014,32:9048369,33:528750,34:686009,35:300000,36:200000,37:403544,38:50755,40:5131864,43:72000,44:3809952},
+      '서현': {5:101640898,8:41450047,9:2673590,10:727273,11:190520,15:22526124,16:6433716,17:1669100,18:2413320,19:58950,20:1067500,26:173610,28:40500,30:79200,31:3100960,32:11000000,33:400000,34:1476641,36:200000,37:2362903,38:39293,39:4000,40:2637558,41:138600,43:50000,44:2236100},
+      '마곡': {5:60537295,8:25718020,9:1632740,10:279546,11:140082,15:23091750,17:1850685,18:1924313,19:70000,20:734230,26:79260,28:27000,31:1837936,32:5400000,34:295411,36:200000,37:1049038,38:102198,40:1046290,41:198000,43:50000,44:1331820},
+    },
+  },
+  invest: {
+    name: '제이에스인베스트먼트',
+    shortName: '인베스트먼트',
+    evalTargets: [
+      { label: '매장매출', row: 5, type: 'revenue' },
+      { label: '식자재매입', row: 9, type: 'cogs' },
+      { label: '주류매입', row: 10, type: 'cogs' },
+      { label: '기타식자재매입', row: 11, type: 'cogs' },
+      { label: '기타주류매입', row: 12, type: 'cogs' },
+      { label: '급여', row: 15, type: 'sga' },
+      { label: '상여금', row: 16, type: 'sga' },
+      { label: '퇴직급여', row: 17, type: 'calc' },
+      { label: '4대보험', row: 18, type: 'sga' },
+      { label: '금융수수료', row: 19, type: 'sga' },
+      { label: '전산비용', row: 20, type: 'sga' },
+      { label: '세무대행', row: 21, type: 'sga' },
+      { label: '광고비', row: 22, type: 'sga' },
+      { label: '임차료', row: 23, type: 'sga' },
+      { label: '관리비', row: 24, type: 'sga' },
+      { label: '지급수수료', row: 25, type: 'sga' },
+      { label: '수선비', row: 26, type: 'sga' },
+      { label: '통신비', row: 27, type: 'sga' },
+      { label: '매장소모품', row: 28, type: 'sga' },
+      { label: '수도광열비', row: 29, type: 'sga' },
+      { label: '로열티', row: 30, type: 'sga' },
+      { label: '채용수수료', row: 31, type: 'sga' },
+      { label: '운반비', row: 32, type: 'sga' },
+      { label: '청소대행', row: 33, type: 'sga' },
+      { label: '폐기물처리', row: 34, type: 'sga' },
+      { label: '방역대행', row: 35, type: 'sga' },
+      { label: '복리후생비', row: 36, type: 'sga' },
+      { label: '세금과공과', row: 37, type: 'sga' },
+      { label: '운영대행', row: 38, type: 'sga' },
+      { label: '보증보험', row: 39, type: 'sga' },
+      { label: '차량리스', row: 40, type: 'sga' },
+      { label: '화재보험', row: 41, type: 'sga' },
+      { label: '감가상각비', row: 42, type: 'sga' },
+    ],
+    calcItems: {
+      17: { label: '퇴직급여', formula: cl => `${cl}15/12` },
+    },
+    calcDataJson: (vals) => {
+      const salary = (vals[15] || 0) + (vals[16] || 0);
+      vals[17] = Math.round(salary / 12);
+    },
+    revenueSubtotalRow: 8,
+    revenueRows: [5, 6, 7],
+    cogsStartRow: 9,
+    cogsEndRow: 12,
+    cogsSubtotalRow: 13,
+    grossProfitRow: 14,
+    sgaStartRow: 15,
+    sgaEndRow: 43,
+    sgaSubtotalRow: 44,
+    operatingRow: 45,
+    ratioRow: 46,
+    reserveRow: 43,
+    emptyBeforeSgaSubtotal: [],
+    section2StartRow: 48,
+    section2: {
+      headerRows: [48, 49],
+      rows: [
+        { row: 50, b: '매출액', c: '', formula: cl => `+${cl}8`, style: 'revenue' },
+        { row: 51, b: '매출원가', c: '식자재', formula: cl => `+${cl}9` },
+        { row: 52, b: '', c: '주류', formula: cl => `+${cl}10` },
+        { row: 53, b: '', c: '기타', formula: cl => `+${cl}11+${cl}12` },
+        { row: 54, b: '', c: '소계', formula: cl => `SUM(${cl}51:${cl}53)`, style: 'subtotal' },
+        { row: 55, b: '매출총이익', c: '', formula: cl => `${cl}50-${cl}54`, style: 'bold' },
+        { row: 56, b: '인건비', c: '급여', formula: cl => `+${cl}15+${cl}16` },
+        { row: 57, b: '', c: '4대보험', formula: cl => `+${cl}18` },
+        { row: 58, b: '', c: '퇴직금', formula: cl => `+${cl}17` },
+        { row: 59, b: '', c: '소계', formula: cl => `SUM(${cl}56:${cl}58)`, style: 'subtotal' },
+        { row: 60, b: '경비', c: '임차료', formula: cl => `+${cl}23` },
+        { row: 61, b: '', c: '수도광열비', formula: cl => `+${cl}29` },
+        { row: 62, b: '', c: '광고비', formula: cl => `+${cl}22` },
+        { row: 63, b: '', c: '매장소모품', formula: cl => `+${cl}28` },
+        { row: 64, b: '', c: '상각비', formula: cl => `+${cl}42` },
+        { row: 65, b: '', c: '기타', formula: cl => `+${cl}44-SUM(${cl}59:${cl}64)` },
+        { row: 66, b: '', c: '소계', formula: cl => `SUM(${cl}60:${cl}65)`, style: 'subtotal' },
+        { row: 67, b: '영업이익', c: '', formula: cl => `${cl}55-${cl}59-${cl}66`, style: 'highlight' },
+      ],
+    },
+    section3StartRow: 69,
+    section3: {
+      headerRows: [69, 70],
+      refStartRow: 50,
+      dataStartRow: 71,
+    },
+    sec1Groups: [
+      { start: 5, end: 8, subtotalRow: 8 },
+      { start: 9, end: 13, subtotalRow: 13 },
+      { start: 14, end: 14, standalone: true },
+      { start: 15, end: 44, subtotalRow: 44 },
+      { start: 45, end: 46, standalone: true },
+    ],
+    janHardcode: {
+      '돼봉': {5:37851427,9:8980782,10:1195267,12:224600,15:14267764,17:1072084,18:1040880,20:304275,21:200000,23:4543400,24:2306280,26:900000,27:41546,28:612513,29:762271,30:1135508,31:433100,32:150000,33:382000,34:286500,35:70000,36:600900,41:252380,42:10109821},
+      '진주섬': {5:74171458,9:29980435,10:4293107,12:167782,15:19770112,17:1495091,18:1531525,20:233000,23:10998400,28:347000,29:1571200,36:436000},
+    },
+  },
+};
+
+// Active config (set when company is selected)
+let activeConfig = null;
+let TARGET_LABELS = [];
 const SPECIAL = ['__제외__', '__영업외__'];
+
+function getEvalTargets() { return activeConfig ? activeConfig.evalTargets : []; }
+
+function updateTargetLabels() {
+  TARGET_LABELS = activeConfig.evalTargets.filter(t => t.type !== 'calc').map(t => t.label);
+}
 
 // State
 let uploadedFiles = {}; // branchName -> { file, data: [{date,num,type,code,account,debit,credit,vendor,vendorCode,desc}] }
@@ -249,6 +465,9 @@ let detectedYear = 2026;
 function autoMap(code, name) {
   const n = (name || '').toLowerCase();
   const c = String(code).trim();
+
+  // Helper: check if a label exists in the active company's evalTargets
+  const hasLabel = (lbl) => TARGET_LABELS.includes(lbl);
 
   // ── B/S 계정 제외 (코드 기반, 확실한 것만) ──
   if (/^(10|11|12|14|20|21|22|23|24|25)/.test(c)) return '__제외__';
@@ -275,30 +494,36 @@ function autoMap(code, name) {
   if (n.includes('상여')) return '상여금';
   if (n.includes('건강보험') || n.includes('국민연금') || n.includes('고용보험') || n.includes('산재') || n.includes('장기요양')) return '4대보험';
   if (n.includes('복리후생') || n.includes('식대') || n.includes('경조') || n.includes('회식')) return '복리후생비';
-  if (n.includes('임차') || n.includes('임대') || n.includes('월세') || n.includes('렌탈') || n.includes('렌트') || n.includes('리스')) return '임차료';
+  if (n.includes('임차') || n.includes('임대') || n.includes('월세')) return '임차료';
+  if (n.includes('렌탈') || n.includes('렌트')) return '임차료';
+  if (n.includes('리스') && hasLabel('차량리스')) return '차량리스';
+  if (n.includes('리스')) return '임차료';
   if (n.includes('소모품') || (n.includes('매장') && !n.includes('임차') && !n.includes('임대'))) return '매장소모품';
   if (n.includes('로열티') || n.includes('royalty')) return '로열티';
-  if (n.includes('불판') || n.includes('세척')) return '불판세척';
+  if (n.includes('불판') || n.includes('세척')) return hasLabel('불판세척') ? '불판세척' : '지급수수료';
   if (n.includes('전산') || n.includes('pos') || n.includes('배달송출')) return '전산비용';
   if (n.includes('청소')) return '청소대행';
   if (n.includes('세무') || n.includes('회계대행')) return '세무대행';
   if (n.includes('방역')) return '방역대행';
-  if (n.includes('노무')) return '노무대행';
+  if (n.includes('노무')) return hasLabel('노무대행') ? '노무대행' : '지급수수료';
   if (n.includes('폐기물')) return '폐기물처리';
   if (n.includes('채용')) return '채용수수료';
   if (n.includes('금융') && n.includes('수수료')) return '금융수수료';
+  if (n.includes('운영대행') || n.includes('운영 대행')) return hasLabel('운영대행') ? '운영대행' : '지급수수료';
   if (n.includes('관리비') || n.includes('건물관리')) return '관리비';
   if (n.includes('광고') || n.includes('판촉') || n.includes('선전')) return '광고비';
   if (n.includes('수선')) return '수선비';
   if (n.includes('운반')) return '운반비';
-  if (n.includes('여비') || n.includes('교통')) return '여비교통비';
-  if (n.includes('도서') || n.includes('인쇄') || n.includes('신문')) return '도서인쇄비';
-  if (n.includes('업무추진') || n.includes('접대') || n.includes('교제')) return '업무추진비';
+  if (n.includes('여비') || n.includes('교통')) return hasLabel('여비교통비') ? '여비교통비' : '지급수수료';
+  if (n.includes('도서') || n.includes('인쇄') || n.includes('신문')) return hasLabel('도서인쇄비') ? '도서인쇄비' : '지급수수료';
+  if (n.includes('업무추진') || n.includes('접대') || n.includes('교제')) return hasLabel('업무추진비') ? '업무추진비' : '지급수수료';
   if (n.includes('세금') || n.includes('공과') || n.includes('주민세') || n.includes('면허세') || n.includes('재산세') || n.includes('인지세') || n.includes('원천')) return '세금과공과';
   if (n.includes('수도') || n.includes('전기') || n.includes('가스') || n.includes('광열') || n.includes('도시가스')) return '수도광열비';
   if (n.includes('통신') || n.includes('전화') || n.includes('인터넷')) return '통신비';
   if (n.includes('감가상각')) return '감가상각비';
-  if (n.includes('보험') && !n.includes('건강') && !n.includes('국민') && !n.includes('고용') && !n.includes('산재') && !n.includes('장기') && !n.includes('4대')) return '보험료';
+  if (n.includes('보증보험') || n.includes('보증 보험')) return hasLabel('보증보험') ? '보증보험' : '보험료';
+  if (n.includes('화재보험') || n.includes('화재 보험')) return hasLabel('화재보험') ? '화재보험' : '보험료';
+  if (n.includes('보험') && !n.includes('건강') && !n.includes('국민') && !n.includes('고용') && !n.includes('산재') && !n.includes('장기') && !n.includes('4대')) return hasLabel('보험료') ? '보험료' : '지급수수료';
   if (n.includes('배달') && !n.includes('매입') && !n.includes('식자재') && !n.includes('주류')) return '운반비';
 
   // ── 키워드 매칭 실패 시 코드 범위로 보조 ──
@@ -310,7 +535,7 @@ function autoMap(code, name) {
   if (/^818/.test(c)) return '감가상각비';
   if (/^819/.test(c)) return '임차료';
   if (/^820/.test(c)) return '수선비';
-  if (/^821/.test(c)) return '보험료';
+  if (/^821/.test(c)) return hasLabel('보험료') ? '보험료' : '지급수수료';
   if (/^824/.test(c)) return '운반비';
   if (/^833/.test(c)) return '광고비';
   if (/^837/.test(c)) return '관리비';
@@ -452,7 +677,7 @@ function saveDataJson() {
 
       const vals = {};
       // 매출/원가/판관비 집계 (행별)
-      for (const target of EVAL_TARGETS) {
+      for (const target of activeConfig.evalTargets) {
         if (target.type === 'calc') continue;
         let sum = 0;
         monthRows.forEach(r => {
@@ -464,11 +689,8 @@ function saveDataJson() {
         if (sum !== 0) vals[target.row] = Math.round(sum);
       }
 
-      // 수식 산출 항목
-      const salary = (vals[15] || 0) + (vals[16] || 0); // 급여+상여
-      vals[18] = Math.round(salary / 12); // 퇴직급여
-      const rev = vals[5] || 0;
-      vals[44] = Math.round(rev * 0.022); // 카드수수료
+      // 수식 산출 항목 (company-specific)
+      activeConfig.calcDataJson(vals);
 
       data[branch][monthKey] = vals;
     }
@@ -485,7 +707,7 @@ function saveDataJson() {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   const monthsLabel = [...selectedMonths].sort((a,b)=>a-b).map(m => m+'월').join('_');
-  a.download = `손익데이터_${detectedYear}년_${monthsLabel}.json`;
+  a.download = `손익데이터_${activeConfig.shortName}_${detectedYear}년_${monthsLabel}.json`;
   a.click();
   URL.revokeObjectURL(a.href);
 }
@@ -608,10 +830,46 @@ function removeBranch(b) {
 }
 
 // ============================================================
+// COMPANY SELECTION
+// ============================================================
+function selectCompany(companyKey) {
+  currentCompany = companyKey;
+  activeConfig = COMPANY_CONFIG[companyKey];
+  updateTargetLabels();
+
+  // Update UI
+  document.getElementById('mainTitle').textContent = activeConfig.shortName + ' 손익현황 생성기';
+  document.getElementById('mainSubtitle').textContent = '분개장 업로드 → 계정 분류 → 점장평가용 엑셀 생성';
+  document.getElementById('stepsBar').style.display = 'flex';
+
+  // Reset state for new company
+  uploadedFiles = {};
+  accountMap = {};
+  savedMapping = null;
+  savedDataJson = null;
+  selectedMonths = new Set();
+  availableMonths = new Set();
+  document.getElementById('fileList').innerHTML = '';
+  document.getElementById('mappingStatus').innerHTML = '';
+  document.getElementById('dataJsonStatus').innerHTML = '';
+  document.getElementById('monthSelector').style.display = 'none';
+  document.getElementById('btnToStep2').disabled = true;
+
+  goStep(1);
+}
+
+// ============================================================
 // STEP NAVIGATION
 // ============================================================
 function goStep(n) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  if (n === 0) {
+    document.getElementById('panel0').classList.add('active');
+    document.getElementById('stepsBar').style.display = 'none';
+    document.getElementById('mainTitle').textContent = '손익현황 생성기';
+    document.getElementById('mainSubtitle').textContent = '회사를 선택하세요';
+    return;
+  }
   document.getElementById('panel' + n).classList.add('active');
   document.querySelectorAll('.step-indicator').forEach((s, i) => {
     s.classList.remove('active', 'done');
@@ -867,7 +1125,7 @@ function buildSummary() {
       }
       const m = accountMap[r.code]?.mapping;
       if (!m || m === '__제외__' || m === '__영업외__') return;
-      const target = EVAL_TARGETS.find(t => t.label === m);
+      const target = activeConfig.evalTargets.find(t => t.label === m);
       if (!target) return;
       if (target.type === 'revenue') revenue += (r.credit - r.debit);
       else if (target.type === 'cogs') cogs += (r.debit - r.credit);
@@ -885,16 +1143,20 @@ function buildSummary() {
       if (mp === '급여') salaryTotal += (r.debit - r.credit);
     });
     const calcRetirement = Math.round(salaryTotal / 12);     // 퇴직급여 = 급여/12
-    const calcCardFee = Math.round(revenue * 0.022);          // 카드수수료 = 매출*2.2%
+    const hasCardFee = !!activeConfig.calcItems[44];
+    const calcCardFee = hasCardFee ? Math.round(revenue * 0.022) : 0; // 카드수수료 = 매출*2.2% (F&B only)
     const totalSga = sga + calcRetirement + calcCardFee;
     const gross = revenue - cogs;
     const op = gross - totalSga;
+    const calcDetail = hasCardFee
+      ? `(퇴직급여 ${formatKRW(calcRetirement)} + 카드수수료 ${formatKRW(calcCardFee)})`
+      : `(퇴직급여 ${formatKRW(calcRetirement)})`;
     html += `<div class="summary-card"><h3>${branch}</h3>` +
       `<div class="row"><span>매출액</span><span>${formatKRW(revenue)}</span></div>` +
       `<div class="row"><span>매출원가</span><span>${formatKRW(cogs)}</span></div>` +
       `<div class="row"><span>매출총이익</span><span>${formatKRW(gross)}</span></div>` +
       `<div class="row"><span>판관비</span><span>${formatKRW(totalSga)}</span></div>` +
-      `<div class="row" style="font-size:0.78rem;color:var(--text-dim)"><span>&nbsp;&nbsp;(퇴직급여 ${formatKRW(calcRetirement)} + 카드수수료 ${formatKRW(calcCardFee)})</span></div>` +
+      `<div class="row" style="font-size:0.78rem;color:var(--text-dim)"><span>&nbsp;&nbsp;${calcDetail}</span></div>` +
       `<div class="row total"><span>영업이익</span><span style="color:${op >= 0 ? 'var(--green)' : 'var(--red)'}">${formatKRW(op)}</span></div>` +
       `</div>`;
   }
@@ -982,7 +1244,7 @@ async function generateExcel() {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     const yy = String(year).slice(2);
-    a.download = `F&B_손익현황_점장평가용_${yy}년.xlsx`;
+    a.download = `${activeConfig.shortName}_손익현황_점장평가용_${yy}년.xlsx`;
     a.click();
 
   } catch (err) {
@@ -1081,23 +1343,10 @@ function colLetter(idx) {
   return s;
 }
 
-// 1월 하드코드 데이터 (다른 분이 작성한 기존 데이터)
-const JAN_HARDCODE = {
-  '영등포': {5:225168329,8:95039953,9:8434253,10:1602727,11:762117,15:40965087,16:2837853,17:3728665,18:3581078,19:190000,20:1005890,22:1180000,26:96000,28:94500,29:220000,30:158200,31:6755036,32:11500000,33:577600,34:1414133,36:200000,37:4087279,38:52704,41:329400,43:50000,44:4953703},
-  '남영': {5:128922681,8:52406234,9:3805860,10:894546,11:605010,15:27987250,16:2753487,17:2278320,18:2489645,19:239900,20:273500,26:79760,28:27000,30:89400,31:3867676,32:12000000,33:387000,34:507370,36:200000,37:1561843,38:34056,40:300000,41:224400,43:50000,44:2836299},
-  '서울대': {5:132823984,8:55926885,9:2900265,10:987727,11:484604,15:29058898,16:2753485,17:1879110,18:2395278,19:626300,20:727133,22:49500,26:102150,28:27000,30:40000,31:4196608,32:16419000,33:364000,34:989235,36:200000,37:1354228,38:42997,40:1400000,41:171900,43:50000,44:2922128},
-  '교대': {5:124985181,8:53076199,9:3892105,10:763636,11:421310,15:30638000,16:2433299,17:2627645,18:2642233,19:30640,20:953908,22:77000,26:233030,28:27000,30:99400,31:3749552,32:10800000,33:350000,34:650864,36:200000,37:1618068,38:47647,40:3951316,43:50000,44:2749674},
-  '홍대': {5:80801864,8:27450397,9:1689400,10:818181,11:478671,15:18796417,17:1051160,18:1566368,19:116800,20:335936,26:111710,28:27000,30:129300,31:2217998,32:10205393,33:246000,34:701995,36:200000,37:2524857,38:40095,41:227800,43:50000,44:1777641},
-  '선릉': {5:129772520,8:58180306,9:4514300,10:909091,11:324508,15:30978761,16:4798057,17:2198865,18:2855568,19:88970,20:265020,26:124100,28:40500,30:709000,31:3966424,32:12000000,33:308000,34:2322959,36:200000,37:2332590,38:41317,40:1000000,41:278800,43:50000,44:2854995},
-  '송도': {5:112333218,8:42757763,9:1594330,10:727273,11:439170,15:24481000,16:3445492,17:1822080,18:2095458,19:72500,20:423718,26:141500,28:27000,30:160900,31:3096584,32:8500000,33:300000,34:2230614,36:200000,37:806265,38:48383,40:2751866,41:142400,43:50000,44:2471331},
-  '왕십리': {5:173179643,8:76289240,9:3450500,10:1454545,11:802519,15:39137900,16:4389140,17:2993910,18:3543920,19:398480,20:1268473,26:138680,28:27000,29:527273,30:450000,31:5429014,32:9048369,33:528750,34:686009,35:300000,36:200000,37:403544,38:50755,40:5131864,43:72000,44:3809952},
-  '서현': {5:101640898,8:41450047,9:2673590,10:727273,11:190520,15:22526124,16:6433716,17:1669100,18:2413320,19:58950,20:1067500,26:173610,28:40500,30:79200,31:3100960,32:11000000,33:400000,34:1476641,36:200000,37:2362903,38:39293,39:4000,40:2637558,41:138600,43:50000,44:2236100},
-  '마곡': {5:60537295,8:25718020,9:1632740,10:279546,11:140082,15:23091750,17:1850685,18:1924313,19:70000,20:734230,26:79260,28:27000,31:1837936,32:5400000,34:295411,36:200000,37:1049038,38:102198,40:1046290,41:198000,43:50000,44:1331820},
-};
-
-// 1월 하드코드 데이터를 지점 이름으로 찾기 (유연한 매칭)
+// 1월 하드코드 데이터를 지점 이름으로 찾기 (유연한 매칭, company-aware)
 function findJanHardcode(branch) {
-  for (const [key, data] of Object.entries(JAN_HARDCODE)) {
+  const hcData = activeConfig.janHardcode;
+  for (const [key, data] of Object.entries(hcData)) {
     if (branch.includes(key) || key.includes(branch)) {
       return data;
     }
@@ -1106,6 +1355,8 @@ function findJanHardcode(branch) {
 }
 
 function buildEvalSheet(ws, branch, jSheetName, year) {
+  const cfg = activeConfig;
+
   // Set column widths
   ws.getColumn(1).width = 2.2;
   ws.getColumn(2).width = 11;
@@ -1114,8 +1365,9 @@ function buildEvalSheet(ws, branch, jSheetName, year) {
   ws.getColumn(16).width = 17;
 
   const yy = String(year).slice(2);
+  const months = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
 
-  // === SECTION 1: 금액 (Rows 1-50) ===
+  // === SECTION 1: 금액 ===
   // Row 1: Title
   const r1 = ws.getRow(1);
   r1.getCell(1).value = '';
@@ -1130,14 +1382,12 @@ function buildEvalSheet(ws, branch, jSheetName, year) {
 
   r3.getCell(4).value = yy + '년';
   styleCell(r3.getCell(4), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center' } });
-  // Merge D3:O3
   ws.mergeCells('D3:O3');
 
   r3.getCell(16).value = '';
   styleCell(r3.getCell(16), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center' } });
 
   const r4 = ws.getRow(4);
-  const months = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
   for (let i = 0; i < 12; i++) {
     r4.getCell(4 + i).value = months[i];
     styleCell(r4.getCell(4 + i), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center' } });
@@ -1145,7 +1395,6 @@ function buildEvalSheet(ws, branch, jSheetName, year) {
   r4.getCell(16).value = '연간';
   styleCell(r4.getCell(16), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center' } });
 
-  // Apply borders to merged area
   for (let c = 4; c <= 16; c++) {
     styleCell(r3.getCell(c), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center' } });
   }
@@ -1156,7 +1405,7 @@ function buildEvalSheet(ws, branch, jSheetName, year) {
     if (bLabel) { row.getCell(2).value = bLabel; row.getCell(2).font = { name: '맑은 고딕', size: 10, bold: true }; }
     if (cLabel) { row.getCell(3).value = cLabel; row.getCell(3).font = { name: '맑은 고딕', size: 10 }; }
     for (let m = 1; m <= 12; m++) {
-      const col = 3 + m; // D=4
+      const col = 3 + m;
       if (targetLabel && selectedMonths.has(m)) {
         if (type === 'revenue') {
           row.getCell(col).value = revenueSumifs(jSheetName, targetLabel, year, m);
@@ -1166,123 +1415,111 @@ function buildEvalSheet(ws, branch, jSheetName, year) {
       }
       styleCell(row.getCell(col), { numFmt: FMT_NUM });
     }
-    // P column = SUM(D:O)
-    const cl = colLetter;
     row.getCell(16).value = { formula: `SUM(D${rowNum}:O${rowNum})` };
     styleCell(row.getCell(16), { numFmt: FMT_NUM, bold: true });
-
-    // borders for B,C
     row.getCell(2).border = thinBorder();
     row.getCell(3).border = thinBorder();
   }
 
   // Row 5: 매장매출
   setDataRow(5, '매출', '매장매출', '매장매출', 'revenue');
-  // Row 6: empty (추가매출)
-  {
-    const row = ws.getRow(6);
+
+  // Empty revenue rows (between row 5 and subtotal)
+  for (let r = 6; r < cfg.revenueSubtotalRow; r++) {
+    const row = ws.getRow(r);
     for (let c = 2; c <= 16; c++) {
       row.getCell(c).border = thinBorder();
       if (c >= 4) { row.getCell(c).numFmt = FMT_NUM; }
     }
   }
-  // Row 7: 소계 = SUM(5:6)
+
+  // Revenue subtotal
   {
-    const row = ws.getRow(7);
+    const stRow = cfg.revenueSubtotalRow;
+    const row = ws.getRow(stRow);
     row.getCell(3).value = '소계';
     row.getCell(3).font = { name: '맑은 고딕', size: 10, bold: true };
     row.getCell(2).border = thinBorder();
     row.getCell(3).border = thinBorder();
     for (let c = 4; c <= 16; c++) {
       const cl = colLetter(c);
-      row.getCell(c).value = { formula: `SUM(${cl}5:${cl}6)` };
+      row.getCell(c).value = { formula: `SUM(${cl}5:${cl}${stRow - 1})` };
       styleCell(row.getCell(c), { numFmt: FMT_NUM, bold: true, fill: CLR_SUBTOTAL });
     }
   }
 
-  // Row 8-11: COGS items
-  setDataRow(8, '매출원가', '식자재매입', '식자재매입', 'cogs');
-  setDataRow(9, '', '주류매입', '주류매입', 'cogs');
-  setDataRow(10, '', '기타식자재매입', '기타식자재매입', 'cogs');
-  setDataRow(11, '', '기타주류매입', '기타주류매입', 'cogs');
-  // Row 12: empty but with borders
-  {
-    const row = ws.getRow(12);
+  // COGS items
+  const cogsItems = cfg.evalTargets.filter(t => t.type === 'cogs');
+  cogsItems.forEach((item, idx) => {
+    const bLabel = idx === 0 ? '매출원가' : '';
+    setDataRow(item.row, bLabel, item.label, item.label, 'cogs');
+  });
+
+  // Empty COGS rows (between last cogs item and subtotal)
+  const lastCogsItemRow = cogsItems.length > 0 ? cogsItems[cogsItems.length - 1].row : cfg.cogsStartRow;
+  for (let r = lastCogsItemRow + 1; r < cfg.cogsSubtotalRow; r++) {
+    const row = ws.getRow(r);
     for (let c = 2; c <= 16; c++) {
       row.getCell(c).border = thinBorder();
       if (c >= 4) { row.getCell(c).numFmt = FMT_NUM; }
     }
   }
-  // Row 13: 소계 = SUM(8:12)
+
+  // COGS subtotal
   {
-    const row = ws.getRow(13);
+    const row = ws.getRow(cfg.cogsSubtotalRow);
     row.getCell(3).value = '소계';
     row.getCell(3).font = { name: '맑은 고딕', size: 10, bold: true };
     row.getCell(2).border = thinBorder();
     row.getCell(3).border = thinBorder();
     for (let c = 4; c <= 16; c++) {
       const cl = colLetter(c);
-      row.getCell(c).value = { formula: `SUM(${cl}8:${cl}12)` };
+      row.getCell(c).value = { formula: `SUM(${cl}${cfg.cogsStartRow}:${cl}${cfg.cogsSubtotalRow - 1})` };
       styleCell(row.getCell(c), { numFmt: FMT_NUM, bold: true, fill: CLR_SUBTOTAL });
     }
   }
 
-  // Row 14: 매출이익 = 7 - 13
+  // Gross profit row
   {
-    const row = ws.getRow(14);
+    const row = ws.getRow(cfg.grossProfitRow);
     row.getCell(2).value = '매출이익';
     row.getCell(2).font = { name: '맑은 고딕', size: 10, bold: true };
     row.getCell(2).border = thinBorder();
     row.getCell(3).border = thinBorder();
     for (let c = 4; c <= 16; c++) {
       const cl = colLetter(c);
-      row.getCell(c).value = { formula: `${cl}7-${cl}13` };
+      row.getCell(c).value = { formula: `${cl}${cfg.revenueSubtotalRow}-${cl}${cfg.cogsSubtotalRow}` };
       styleCell(row.getCell(c), { numFmt: FMT_NUM, bold: true, fill: CLR_REVENUE });
     }
   }
 
-  // Rows 15-45: SGA items
-  const sgaItems = EVAL_TARGETS.filter(t => t.type === 'sga');
+  // SGA items
+  const sgaItems = cfg.evalTargets.filter(t => t.type === 'sga');
   sgaItems.forEach((item, idx) => {
     const bLabel = idx === 0 ? '판관비' : '';
     setDataRow(item.row, bLabel, item.label, item.label, 'sga');
   });
 
-  // Row 18: 퇴직급여 = 급여(Row15) / 12
-  {
-    const row = ws.getRow(18);
-    row.getCell(3).value = '퇴직급여';
+  // Calc items (퇴직급여, 카드수수료 etc.)
+  for (const [rowStr, calcDef] of Object.entries(cfg.calcItems)) {
+    const rowNum = parseInt(rowStr);
+    const row = ws.getRow(rowNum);
+    row.getCell(3).value = calcDef.label;
     row.getCell(3).font = { name: '맑은 고딕', size: 10 };
     row.getCell(2).border = thinBorder();
     row.getCell(3).border = thinBorder();
     for (let c = 4; c <= 15; c++) {
       const cl = colLetter(c);
-      row.getCell(c).value = { formula: `${cl}15/12` };
+      row.getCell(c).value = { formula: calcDef.formula(cl) };
       styleCell(row.getCell(c), { numFmt: FMT_NUM });
     }
-    row.getCell(16).value = { formula: 'SUM(D18:O18)' };
+    row.getCell(16).value = { formula: `SUM(D${rowNum}:O${rowNum})` };
     styleCell(row.getCell(16), { numFmt: FMT_NUM, bold: true });
   }
 
-  // Row 44: 카드수수료 = 매출액(Row7) * 2.2%
-  {
-    const row = ws.getRow(44);
-    row.getCell(3).value = '카드수수료';
-    row.getCell(3).font = { name: '맑은 고딕', size: 10 };
-    row.getCell(2).border = thinBorder();
-    row.getCell(3).border = thinBorder();
-    for (let c = 4; c <= 15; c++) {
-      const cl = colLetter(c);
-      row.getCell(c).value = { formula: `${cl}7*0.022` };
-      styleCell(row.getCell(c), { numFmt: FMT_NUM });
-    }
-    row.getCell(16).value = { formula: 'SUM(D44:O44)' };
-    styleCell(row.getCell(16), { numFmt: FMT_NUM, bold: true });
-  }
-
-  // Row 46: 예비비 (빈 행 — 필요 시 수동 입력)
-  {
-    const row = ws.getRow(46);
+  // Reserve row (예비비) - only if it's not already an SGA item
+  if (cfg.reserveRow && !sgaItems.find(t => t.row === cfg.reserveRow) && !cfg.calcItems[cfg.reserveRow]) {
+    const row = ws.getRow(cfg.reserveRow);
     row.getCell(3).value = '예비비';
     row.getCell(3).font = { name: '맑은 고딕', size: 10 };
     row.getCell(2).border = thinBorder();
@@ -1292,77 +1529,79 @@ function buildEvalSheet(ws, branch, jSheetName, year) {
     }
   }
 
-  // Row 47: empty
-  {
-    const row = ws.getRow(47);
+  // Empty rows before SGA subtotal
+  for (const emptyRow of (cfg.emptyBeforeSgaSubtotal || [])) {
+    const row = ws.getRow(emptyRow);
     for (let c = 2; c <= 16; c++) {
       row.getCell(c).border = thinBorder();
     }
   }
 
-  // Row 48: 소계 = SUM(15:47)
+  // SGA subtotal
   {
-    const row = ws.getRow(48);
+    const row = ws.getRow(cfg.sgaSubtotalRow);
     row.getCell(3).value = '소계';
     row.getCell(3).font = { name: '맑은 고딕', size: 10, bold: true };
     row.getCell(2).border = thinBorder();
     row.getCell(3).border = thinBorder();
     for (let c = 4; c <= 16; c++) {
       const cl = colLetter(c);
-      row.getCell(c).value = { formula: `SUM(${cl}15:${cl}47)` };
+      row.getCell(c).value = { formula: `SUM(${cl}${cfg.sgaStartRow}:${cl}${cfg.sgaSubtotalRow - 1})` };
       styleCell(row.getCell(c), { numFmt: FMT_NUM, bold: true, fill: CLR_SUBTOTAL });
     }
   }
 
-  // Row 49: 영업이익 = 14 - 48
+  // Operating income
   {
-    const row = ws.getRow(49);
+    const row = ws.getRow(cfg.operatingRow);
     row.getCell(2).value = '영업이익';
     row.getCell(2).font = { name: '맑은 고딕', size: 10, bold: true };
     row.getCell(2).border = thinBorder();
     row.getCell(3).border = thinBorder();
     for (let c = 4; c <= 16; c++) {
       const cl = colLetter(c);
-      row.getCell(c).value = { formula: `${cl}14-${cl}48` };
+      row.getCell(c).value = { formula: `${cl}${cfg.grossProfitRow}-${cl}${cfg.sgaSubtotalRow}` };
       styleCell(row.getCell(c), { numFmt: FMT_NUM, bold: true, fill: CLR_HIGHLIGHT });
     }
   }
 
-  // Row 50: 영업이익률 = IFERROR(49/7, 0)
+  // Operating ratio
   {
-    const row = ws.getRow(50);
+    const row = ws.getRow(cfg.ratioRow);
     row.getCell(2).value = '영업이익률';
     row.getCell(2).font = { name: '맑은 고딕', size: 10, bold: true };
     row.getCell(2).border = thinBorder();
     row.getCell(3).border = thinBorder();
     for (let c = 4; c <= 16; c++) {
       const cl = colLetter(c);
-      row.getCell(c).value = { formula: `IFERROR(${cl}49/${cl}7,0)` };
+      row.getCell(c).value = { formula: `IFERROR(${cl}${cfg.operatingRow}/${cl}${cfg.revenueSubtotalRow},0)` };
       styleCell(row.getCell(c), { numFmt: FMT_PCT, bold: true, fill: CLR_HIGHLIGHT });
     }
   }
 
-  // === SECTION 2: 요약 (Rows 52-73) ===
-  // Row 52-53: Headers
+  // === SECTION 2: 요약 ===
+  const s2 = cfg.section2;
   {
-    ws.mergeCells('B52:C53');
-    const r52 = ws.getRow(52);
-    r52.getCell(2).value = '금액';
-    styleCell(r52.getCell(2), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center', vertical: 'middle' } });
+    const hdr1 = s2.headerRows[0];
+    const hdr2 = s2.headerRows[1];
+    ws.mergeCells(`B${hdr1}:C${hdr2}`);
+    const rh1 = ws.getRow(hdr1);
+    rh1.getCell(2).value = '금액';
+    styleCell(rh1.getCell(2), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center', vertical: 'middle' } });
 
-    r52.getCell(4).value = yy + '년';
-    ws.mergeCells('D52:O52');
+    rh1.getCell(4).value = yy + '년';
+    ws.mergeCells(`D${hdr1}:O${hdr1}`);
     for (let c = 4; c <= 16; c++) {
-      styleCell(r52.getCell(c), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center' } });
+      styleCell(rh1.getCell(c), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center' } });
     }
 
-    const r53 = ws.getRow(53);
+    const rh2 = ws.getRow(hdr2);
     for (let i = 0; i < 12; i++) {
-      r53.getCell(4 + i).value = months[i];
-      styleCell(r53.getCell(4 + i), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center' } });
+      rh2.getCell(4 + i).value = months[i];
+      styleCell(rh2.getCell(4 + i), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center' } });
     }
-    r53.getCell(16).value = '연간';
-    styleCell(r53.getCell(16), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center' } });
+    rh2.getCell(16).value = '연간';
+    styleCell(rh2.getCell(16), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center' } });
   }
 
   function setSummaryRefRow(rowNum, bLabel, cLabel, refFormula, opts) {
@@ -1381,105 +1620,61 @@ function buildEvalSheet(ws, branch, jSheetName, year) {
     }
   }
 
-  // Row 54: 매출액 = +D7
-  setSummaryRefRow(54, '매출액', '', cl => `+${cl}7`, { bold: true, fill: CLR_REVENUE });
-  // Row 55: 식자재
-  setSummaryRefRow(55, '매출원가', '식자재', cl => `+${cl}8`);
-  // Row 56: 주류
-  setSummaryRefRow(56, '', '주류', cl => `+${cl}9`);
-  // Row 57: 기타 = D10+D11
-  setSummaryRefRow(57, '', '기타', cl => `+${cl}10+${cl}11`);
-  // Row 58: 소계 = SUM(55:57)
-  setSummaryRefRow(58, '', '소계', cl => `SUM(${cl}55:${cl}57)`, { bold: true, fill: CLR_SUBTOTAL });
-  // Row 59: 매출총이익 = 54-58
-  setSummaryRefRow(59, '매출총이익', '', cl => `${cl}54-${cl}58`, { bold: true });
-  // Row 60: 급여 = D15+D16 (급여+상여금)
-  setSummaryRefRow(60, '인건비', '급여', cl => `+${cl}15+${cl}16`);
-  // Row 61: 4대보험
-  setSummaryRefRow(61, '', '4대보험', cl => `+${cl}17`);
-  // Row 62: 퇴직금
-  setSummaryRefRow(62, '', '퇴직금', cl => `+${cl}18`);
-  // Row 63: 소계 = SUM(60:62)
-  setSummaryRefRow(63, '', '소계', cl => `SUM(${cl}60:${cl}62)`, { bold: true, fill: CLR_SUBTOTAL });
-  // Row 64: 임차료
-  setSummaryRefRow(64, '경비', '임차료', cl => `+${cl}32`);
-  // Row 65: 관리비
-  setSummaryRefRow(65, '', '관리비', cl => `+${cl}40`);
-  // Row 66: 수도광열비
-  setSummaryRefRow(66, '', '수도광열비', cl => `+${cl}37`);
-  // Row 67: 광고비
-  setSummaryRefRow(67, '', '광고비', cl => `+${cl}35`);
-  // Row 68: 매장소모품
-  setSummaryRefRow(68, '', '매장소모품', cl => `+${cl}20`);
-  // Row 69: 예비비
-  setSummaryRefRow(69, '', '예비비', cl => `+${cl}46`);
-  // Row 70: 상각비
-  setSummaryRefRow(70, '', '상각비', cl => `+${cl}45`);
-  // Row 71: 기타 = 판관비소계 - SUM(인건비소계 + 경비64:70)
-  setSummaryRefRow(71, '', '기타', cl => `+${cl}48-SUM(${cl}63:${cl}70)`);
-  // Row 72: 소계 = SUM(64:71)
-  setSummaryRefRow(72, '', '소계', cl => `SUM(${cl}64:${cl}71)`, { bold: true, fill: CLR_SUBTOTAL });
-  // Row 73: 영업이익 = 59-63-72
-  setSummaryRefRow(73, '영업이익', '', cl => `${cl}59-${cl}63-${cl}72`, { bold: true, fill: CLR_HIGHLIGHT });
-
-  // === SECTION 3: 비율 (Rows 75-96) ===
-  // Row 75-76: Headers
-  {
-    ws.mergeCells('B75:C76');
-    const r75 = ws.getRow(75);
-    r75.getCell(2).value = '비율';
-    styleCell(r75.getCell(2), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center', vertical: 'middle' } });
-    r75.getCell(4).value = yy + '년';
-    ws.mergeCells('D75:O75');
-    for (let c = 4; c <= 16; c++) {
-      styleCell(r75.getCell(c), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center' } });
-    }
-    const r76 = ws.getRow(76);
-    for (let i = 0; i < 12; i++) {
-      r76.getCell(4 + i).value = months[i];
-      styleCell(r76.getCell(4 + i), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center' } });
-    }
-    r76.getCell(16).value = '연간';
-    styleCell(r76.getCell(16), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center' } });
+  // Write section 2 rows from config
+  for (const sr of s2.rows) {
+    const fillMap = { revenue: CLR_REVENUE, subtotal: CLR_SUBTOTAL, highlight: CLR_HIGHLIGHT };
+    const opts = {};
+    if (sr.style === 'bold') opts.bold = true;
+    else if (sr.style && fillMap[sr.style]) { opts.fill = fillMap[sr.style]; opts.bold = true; }
+    setSummaryRefRow(sr.row, sr.b, sr.c, sr.formula, opts);
   }
 
-  // Map section 2 rows to section 3 rows (offset = 75-52 = 23)
-  // Section 2: 54-73 → Section 3: 77-96
-  const sec2Rows = [54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73];
-  const sec2Labels = [
-    ['매출액',''], ['매출원가','식자재'], ['','주류'], ['','기타'],
-    ['','소계'], ['매출총이익',''], ['인건비','급여'], ['','4대보험'],
-    ['','퇴직금'], ['','소계'], ['경비','임차료'], ['','관리비'],
-    ['','수도광열비'], ['','광고비'], ['','매장소모품'], ['','예비비'],
-    ['','상각비'], ['','기타'], ['','소계'], ['영업이익','']
-  ];
-  const sec2Styles = [
-    CLR_REVENUE, null, null, null,
-    CLR_SUBTOTAL, null, null, null,
-    null, CLR_SUBTOTAL, null, null,
-    null, null, null, null,
-    null, null, CLR_SUBTOTAL, CLR_HIGHLIGHT
-  ];
+  // === SECTION 3: 비율 ===
+  const s3 = cfg.section3;
+  {
+    const hdr1 = s3.headerRows[0];
+    const hdr2 = s3.headerRows[1];
+    ws.mergeCells(`B${hdr1}:C${hdr2}`);
+    const rh1 = ws.getRow(hdr1);
+    rh1.getCell(2).value = '비율';
+    styleCell(rh1.getCell(2), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center', vertical: 'middle' } });
+    rh1.getCell(4).value = yy + '년';
+    ws.mergeCells(`D${hdr1}:O${hdr1}`);
+    for (let c = 4; c <= 16; c++) {
+      styleCell(rh1.getCell(c), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center' } });
+    }
+    const rh2 = ws.getRow(hdr2);
+    for (let i = 0; i < 12; i++) {
+      rh2.getCell(4 + i).value = months[i];
+      styleCell(rh2.getCell(4 + i), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center' } });
+    }
+    rh2.getCell(16).value = '연간';
+    styleCell(rh2.getCell(16), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center' } });
+  }
 
-  sec2Rows.forEach((srcRow, idx) => {
-    const dstRow = 77 + idx;
+  // Section 3: ratio rows (mirror section 2 with IFERROR / revenue ref)
+  const s2RevenueRow = s2.rows[0].row; // first row = 매출액
+  s2.rows.forEach((sr, idx) => {
+    const dstRow = s3.dataStartRow + idx;
     const row = ws.getRow(dstRow);
-    if (sec2Labels[idx][0]) {
-      row.getCell(2).value = sec2Labels[idx][0];
+    if (sr.b) {
+      row.getCell(2).value = sr.b;
       row.getCell(2).font = { name: '맑은 고딕', size: 10, bold: true };
     }
-    if (sec2Labels[idx][1]) {
-      row.getCell(3).value = sec2Labels[idx][1];
+    if (sr.c) {
+      row.getCell(3).value = sr.c;
       row.getCell(3).font = { name: '맑은 고딕', size: 10 };
     }
     row.getCell(2).border = thinBorder();
     row.getCell(3).border = thinBorder();
+
+    const fillMap = { revenue: CLR_REVENUE, subtotal: CLR_SUBTOTAL, highlight: CLR_HIGHLIGHT };
     for (let c = 4; c <= 16; c++) {
       const cl = colLetter(c);
-      row.getCell(c).value = { formula: `IFERROR(${cl}${srcRow}/${cl}$54,0)` };
+      row.getCell(c).value = { formula: `IFERROR(${cl}${sr.row}/${cl}$${s2RevenueRow},0)` };
       const cellOpts = { numFmt: FMT_PCT };
-      if (sec2Styles[idx]) cellOpts.fill = sec2Styles[idx];
-      if (idx === 0 || idx === 4 || idx === 5 || idx === 9 || idx === 18 || idx === 19) cellOpts.bold = true;
+      if (sr.style && fillMap[sr.style]) cellOpts.fill = fillMap[sr.style];
+      if (sr.style === 'bold' || sr.style === 'revenue' || sr.style === 'subtotal' || sr.style === 'highlight') cellOpts.bold = true;
       styleCell(row.getCell(c), cellOpts);
     }
   });
@@ -1489,13 +1684,12 @@ function buildEvalSheet(ws, branch, jSheetName, year) {
   if (hc) {
     for (const [rowStr, val] of Object.entries(hc)) {
       const rowNum = parseInt(rowStr);
-      ws.getRow(rowNum).getCell(4).value = Math.round(val); // D column = 1월
+      ws.getRow(rowNum).getCell(4).value = Math.round(val);
     }
   }
 
   // === 데이터 JSON 하드코드 적용 (이전 월 누적) ===
   if (savedDataJson) {
-    // 지점명 유연 매칭
     let branchData = null;
     for (const [key, val] of Object.entries(savedDataJson)) {
       if (key === branch || key.includes(branch) || branch.includes(key)) {
@@ -1506,8 +1700,8 @@ function buildEvalSheet(ws, branch, jSheetName, year) {
       for (const [monthKey, rowVals] of Object.entries(branchData)) {
         const monthNum = parseInt(monthKey.split('-')[1]);
         if (monthNum < 1 || monthNum > 12) continue;
-        if (monthNum === 1) continue; // 1월은 JAN_HARDCODE가 처리
-        const col = 3 + monthNum; // 2월=E(5), 3월=F(6), ...
+        if (monthNum === 1) continue;
+        const col = 3 + monthNum;
         for (const [rowStr, val] of Object.entries(rowVals)) {
           const rowNum = parseInt(rowStr);
           ws.getRow(rowNum).getCell(col).value = Math.round(val);
@@ -1516,9 +1710,7 @@ function buildEvalSheet(ws, branch, jSheetName, year) {
     }
   }
 
-  // === 전체 테두리 및 레이아웃 정리 (group outer-frame) ===
-
-  // --- Helper: apply numFmt and font defaults for a section ---
+  // === 전체 테두리 및 레이아웃 정리 ===
   function ensureDefaults(startRow, endRow, defaultNumFmt) {
     for (let r = startRow; r <= endRow; r++) {
       const row = ws.getRow(r);
@@ -1530,34 +1722,26 @@ function buildEvalSheet(ws, branch, jSheetName, year) {
     }
   }
 
-  // Section 1: numFmt defaults (row 50 = PCT, rest = NUM)
-  for (let r = 3; r <= 50; r++) {
+  // Section 1 defaults
+  for (let r = 3; r <= cfg.ratioRow; r++) {
     const row = ws.getRow(r);
     for (let c = 2; c <= 16; c++) {
       const cell = row.getCell(c);
       if (c >= 4 && !cell.numFmt) {
-        if (r === 50) cell.numFmt = FMT_PCT;
+        if (r === cfg.ratioRow) cell.numFmt = FMT_PCT;
         else cell.numFmt = FMT_NUM;
       }
       if (!cell.font || !cell.font.name) cell.font = { name: '맑은 고딕', size: 10 };
     }
   }
-  // Section 2 & 3: defaults
-  ensureDefaults(52, 73, FMT_NUM);
-  ensureDefaults(75, 96, FMT_PCT);
 
-  // --- Header rows keep all-borders (they were set by styleCell already) ---
-  // Rows 3-4, 52-53, 75-76 already have thinBorder from styleCell calls.
+  // Section 2 & 3 defaults
+  const s2LastRow = s2.rows[s2.rows.length - 1].row;
+  const s3LastRow = s3.dataStartRow + s2.rows.length - 1;
+  ensureDefaults(s2.headerRows[0], s2LastRow, FMT_NUM);
+  ensureDefaults(s3.headerRows[0], s3LastRow, FMT_PCT);
 
-  // --- Group-based border application for Section 1 (rows 5-50) ---
-  const sec1Groups = [
-    { start: 5,  end: 7,  subtotalRow: 7 },
-    { start: 8,  end: 13, subtotalRow: 13 },
-    { start: 14, end: 14, standalone: true },
-    { start: 15, end: 48, subtotalRow: 48 },
-    { start: 49, end: 50, standalone: true },
-  ];
-
+  // Group-based border application
   function applyGroupBorders(groups) {
     groups.forEach(g => {
       for (let r = g.start; r <= g.end; r++) {
@@ -1570,13 +1754,11 @@ function buildEvalSheet(ws, branch, jSheetName, year) {
         for (let c = 2; c <= 16; c++) {
           const cell = row.getCell(c);
           if (c === 2) {
-            // B column (category label)
             if (isStandalone && g.start === g.end) cell.border = borderLTB();
             else if (isFirst) cell.border = borderLT();
             else if (isLast) cell.border = borderLB();
             else cell.border = borderL();
           } else {
-            // C-P columns (detail label + data)
             if (isStandalone || isSubtotal) cell.border = thinBorder();
             else if (isFirst) cell.border = borderLRT();
             else if (isLast) cell.border = borderLRB();
@@ -1587,30 +1769,46 @@ function buildEvalSheet(ws, branch, jSheetName, year) {
     });
   }
 
-  applyGroupBorders(sec1Groups);
+  applyGroupBorders(cfg.sec1Groups);
 
-  // --- Group-based border application for Section 2 (rows 54-73) ---
-  const sec2Groups = [
-    { start: 54, end: 54, standalone: true },
-    { start: 55, end: 58, subtotalRow: 58 },
-    { start: 59, end: 59, standalone: true },
-    { start: 60, end: 63, subtotalRow: 63 },
-    { start: 64, end: 72, subtotalRow: 72 },
-    { start: 73, end: 73, standalone: true },
-  ];
-
+  // Section 2 border groups (derive from section2 config)
+  const sec2Groups = [];
+  let i = 0;
+  while (i < s2.rows.length) {
+    const sr = s2.rows[i];
+    if (sr.style === 'revenue' || sr.style === 'bold' || sr.style === 'highlight') {
+      sec2Groups.push({ start: sr.row, end: sr.row, standalone: true });
+      i++;
+    } else if (sr.style === 'subtotal') {
+      // find start of this group (go back to find the first non-standalone, non-subtotal)
+      sec2Groups.push({ start: sr.row, end: sr.row, standalone: true });
+      i++;
+    } else {
+      // regular row, find the group end (next subtotal)
+      let groupStart = sr.row;
+      let j = i;
+      while (j < s2.rows.length && s2.rows[j].style !== 'subtotal' && s2.rows[j].style !== 'bold' && s2.rows[j].style !== 'highlight' && s2.rows[j].style !== 'revenue') {
+        j++;
+      }
+      if (j < s2.rows.length && s2.rows[j].style === 'subtotal') {
+        sec2Groups.push({ start: groupStart, end: s2.rows[j].row, subtotalRow: s2.rows[j].row });
+        i = j + 1;
+      } else {
+        sec2Groups.push({ start: groupStart, end: s2.rows[j - 1].row });
+        i = j;
+      }
+    }
+  }
   applyGroupBorders(sec2Groups);
 
-  // --- Group-based border application for Section 3 (rows 77-96), same structure offset by 23 ---
-  const sec3Groups = [
-    { start: 77, end: 77, standalone: true },
-    { start: 78, end: 81, subtotalRow: 81 },
-    { start: 82, end: 82, standalone: true },
-    { start: 83, end: 86, subtotalRow: 86 },
-    { start: 87, end: 95, subtotalRow: 95 },
-    { start: 96, end: 96, standalone: true },
-  ];
-
+  // Section 3 border groups (same structure, offset)
+  const sec3Groups = sec2Groups.map(g => {
+    const offset = s3.dataStartRow - s2.rows[0].row;
+    const ng = { start: g.start + offset, end: g.end + offset };
+    if (g.subtotalRow) ng.subtotalRow = g.subtotalRow + offset;
+    if (g.standalone) ng.standalone = true;
+    return ng;
+  });
   applyGroupBorders(sec3Groups);
 
   // Row 1 제목 행
@@ -1618,7 +1816,6 @@ function buildEvalSheet(ws, branch, jSheetName, year) {
     const cell = ws.getRow(1).getCell(c);
     if (!cell.font || !cell.font.name) cell.font = { name: '맑은 고딕', size: 10 };
   }
-  // Row 2, 51, 74: 섹션 사이 빈 행 (테두리 없이 깔끔하게)
 
   // Freeze panes + 눈금선 끄기 + 배율 75%
   ws.views = [{ state: 'frozen', xSplit: 3, ySplit: 4, topLeftCell: 'D5', activeCell: 'D5', showGridLines: false, zoomScale: 75 }];
@@ -1668,7 +1865,7 @@ function buildTotalSheet(wb, branches, year) {
     rr.getCell(3).border = thinBorder();
     for (let c = 4; c <= 16; c++) {
       const cl = colLetter(c);
-      rr.getCell(c).value = { formula: `+'${branch}'!${cl}7` };
+      rr.getCell(c).value = { formula: `+'${branch}'!${cl}${activeConfig.revenueSubtotalRow}` };
       styleCell(rr.getCell(c), { numFmt: FMT_NUM });
     }
 
@@ -1682,7 +1879,7 @@ function buildTotalSheet(wb, branches, year) {
     or.getCell(3).border = thinBorder();
     for (let c = 4; c <= 16; c++) {
       const cl = colLetter(c);
-      or.getCell(c).value = { formula: `+'${branch}'!${cl}49` };
+      or.getCell(c).value = { formula: `+'${branch}'!${cl}${activeConfig.operatingRow}` };
       styleCell(or.getCell(c), { numFmt: FMT_NUM });
     }
 
