@@ -642,8 +642,23 @@ async function generateExcel() {
     const totalSteps = branches.length * 2 + 1;
     let step = 0;
 
+    // === 1단계: 지점별 평가 시트 먼저 생성 ===
     for (const branch of branches) {
-      // --- Journal sheet ---
+      const es = wb.addWorksheet(branch);
+      es.properties.tabColor = { argb: 'FFFFC000' };
+      const jSheetName = '분개장_' + branch;
+      buildEvalSheet(es, branch, jSheetName, year);
+      step++;
+      fill.style.width = (step / totalSteps * 100) + '%';
+    }
+
+    // === 2단계: 합계 시트 ===
+    buildTotalSheet(wb, branches, year);
+    step++;
+    fill.style.width = (step / totalSteps * 100) + '%';
+
+    // === 3단계: 분개장 시트 (맨 뒤) ===
+    for (const branch of branches) {
       const jSheetName = '분개장_' + branch;
       const js = wb.addWorksheet(jSheetName);
       js.properties.tabColor = { argb: 'FF4472C4' };
@@ -678,22 +693,8 @@ async function generateExcel() {
       ];
 
       step++;
-      fill.style.width = (step / totalSteps * 100) + '%';
-
-      // --- Eval sheet ---
-      const es = wb.addWorksheet(branch);
-      es.properties.tabColor = { argb: 'FFFFC000' };
-
-      buildEvalSheet(es, branch, jSheetName, year);
-
-      step++;
-      fill.style.width = (step / totalSteps * 100) + '%';
+      fill.style.width = '100%';
     }
-
-    // --- 합계 sheet ---
-    buildTotalSheet(wb, branches, year);
-    step++;
-    fill.style.width = '100%';
 
     const buffer = await wb.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -1161,6 +1162,50 @@ function buildEvalSheet(ws, branch, jSheetName, year) {
     }
   });
 
+  // === 전체 테두리 및 레이아웃 정리 ===
+  // Section 1 (rows 3-50): 모든 셀에 테두리 보장
+  for (let r = 3; r <= 50; r++) {
+    const row = ws.getRow(r);
+    for (let c = 2; c <= 16; c++) {
+      const cell = row.getCell(c);
+      if (!cell.border || !cell.border.top) cell.border = thinBorder();
+      // 빈 데이터 셀도 숫자서식 적용
+      if (c >= 4 && !cell.numFmt) {
+        if (r === 50) cell.numFmt = FMT_PCT;
+        else cell.numFmt = FMT_NUM;
+      }
+      // 폰트 없으면 기본 폰트
+      if (!cell.font || !cell.font.name) cell.font = { name: '맑은 고딕', size: 10 };
+    }
+  }
+  // Section 2 (rows 52-73)
+  for (let r = 52; r <= 73; r++) {
+    const row = ws.getRow(r);
+    for (let c = 2; c <= 16; c++) {
+      const cell = row.getCell(c);
+      if (!cell.border || !cell.border.top) cell.border = thinBorder();
+      if (c >= 4 && !cell.numFmt) cell.numFmt = FMT_NUM;
+      if (!cell.font || !cell.font.name) cell.font = { name: '맑은 고딕', size: 10 };
+    }
+  }
+  // Section 3 (rows 75-96)
+  for (let r = 75; r <= 96; r++) {
+    const row = ws.getRow(r);
+    for (let c = 2; c <= 16; c++) {
+      const cell = row.getCell(c);
+      if (!cell.border || !cell.border.top) cell.border = thinBorder();
+      if (c >= 4 && !cell.numFmt) cell.numFmt = FMT_PCT;
+      if (!cell.font || !cell.font.name) cell.font = { name: '맑은 고딕', size: 10 };
+    }
+  }
+
+  // Row 1 제목 행: B~P 하단 테두리
+  for (let c = 2; c <= 16; c++) {
+    const cell = ws.getRow(1).getCell(c);
+    if (!cell.font || !cell.font.name) cell.font = { name: '맑은 고딕', size: 10 };
+  }
+  // Row 2, 51, 74: 섹션 사이 빈 행 (테두리 없이 깔끔하게)
+
   // Freeze panes: freeze at D5
   ws.views = [{ state: 'frozen', xSplit: 3, ySplit: 4, topLeftCell: 'D5', activeCell: 'D5' }];
 }
@@ -1180,7 +1225,7 @@ function buildTotalSheet(wb, branches, year) {
   ws.getColumn(16).width = 17;
 
   // Row 1: Title
-  ws.getRow(1).getCell(2).value = '★ 전체 합계';
+  ws.getRow(1).getCell(2).value = '▣ 전체 합계';
   ws.getRow(1).getCell(2).font = { name: '맑은 고딕', size: 12, bold: true };
 
   // Row 2: Headers
@@ -1262,6 +1307,17 @@ function buildTotalSheet(wb, branches, year) {
     const cl = colLetter(c);
     to.getCell(c).value = { formula: `SUMIFS(${cl}$${dataStartRow}:${cl}$${dataEndRow},$C$${dataStartRow}:$C$${dataEndRow},"영업이익")` };
     styleCell(to.getCell(c), { numFmt: FMT_NUM, bold: true, fill: CLR_HIGHLIGHT });
+  }
+
+  // 합계 시트 전체 테두리 정리
+  for (let r = 2; r <= totalOpRow; r++) {
+    const row = ws.getRow(r);
+    for (let c = 2; c <= 16; c++) {
+      const cell = row.getCell(c);
+      if (!cell.border || !cell.border.top) cell.border = thinBorder();
+      if (c >= 4 && !cell.numFmt) cell.numFmt = FMT_NUM;
+      if (!cell.font || !cell.font.name) cell.font = { name: '맑은 고딕', size: 10 };
+    }
   }
 }
 </script>
