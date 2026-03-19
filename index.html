@@ -76,6 +76,11 @@ tr.mapped td { }
 td select { background:var(--surface2); color:var(--text); border:1px solid var(--border); border-radius:4px; padding:4px 8px; font-size:0.8rem; font-family:inherit; width:100%; }
 td select.unmapped-sel { border-color:var(--gold); background:#3d3520; }
 
+/* Branch filter tabs */
+.branch-tab { padding:6px 14px; background:var(--surface); border:1px solid var(--border); border-radius:6px; color:var(--text-dim); font-size:12px; font-weight:500; cursor:pointer; font-family:inherit; transition:all .2s; }
+.branch-tab:hover { background:var(--surface2); color:var(--text); }
+.branch-tab.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+
 /* Stats bar */
 .stats-bar { display:flex; gap:16px; align-items:center; padding:12px 16px; background:var(--surface); border:1px solid var(--border); border-radius:8px; margin-top:16px; flex-wrap:wrap; }
 .stat { font-size:0.85rem; }
@@ -448,15 +453,20 @@ document.getElementById('btnBackTo2').addEventListener('click', () => goStep(2))
 // ============================================================
 // STEP 2: ACCOUNT MAPPING
 // ============================================================
+let selectedBranch = '__all__'; // 현재 선택된 지점 필터
+
 function buildAccountMap() {
   accountMap = {};
+  // 지점별 금액도 함께 저장
   for (const branch of Object.keys(uploadedFiles)) {
     for (const row of uploadedFiles[branch].data) {
       const c = row.code;
       if (!c) continue;
       if (!accountMap[c]) {
-        accountMap[c] = { name: row.account, totalAmt: 0, mapping: null };
+        accountMap[c] = { name: row.account, totalAmt: 0, mapping: null, branches: {} };
       }
+      if (!accountMap[c].branches[branch]) accountMap[c].branches[branch] = 0;
+      accountMap[c].branches[branch] += (row.debit - row.credit);
       accountMap[c].totalAmt += (row.debit - row.credit);
     }
   }
@@ -475,7 +485,23 @@ function buildAccountMap() {
 }
 
 function renderMappingTable() {
-  const codes = Object.keys(accountMap).sort((a, b) => a.localeCompare(b, 'ko', { numeric: true }));
+  const allCodes = Object.keys(accountMap).sort((a, b) => a.localeCompare(b, 'ko', { numeric: true }));
+  const branches = Object.keys(uploadedFiles);
+
+  // 지점 필터 탭 생성
+  let tabsHtml = `<div style="display:flex;gap:4px;margin-bottom:14px;flex-wrap:wrap">`;
+  tabsHtml += `<button class="branch-tab ${selectedBranch === '__all__' ? 'active' : ''}" onclick="switchBranchFilter('__all__')">전체 (${allCodes.length})</button>`;
+  branches.forEach(b => {
+    const cnt = allCodes.filter(c => accountMap[c].branches[b]).length;
+    tabsHtml += `<button class="branch-tab ${selectedBranch === b ? 'active' : ''}" onclick="switchBranchFilter('${b}')">${b} (${cnt})</button>`;
+  });
+  tabsHtml += `</div>`;
+
+  // 선택된 지점 기준 코드 필터링
+  const codes = selectedBranch === '__all__'
+    ? allCodes
+    : allCodes.filter(c => accountMap[c].branches[selectedBranch]);
+
   let autoCount = 0, unmappedCount = 0, excludedCount = 0, extCount = 0;
   codes.forEach(c => {
     const m = accountMap[c].mapping;
@@ -486,7 +512,7 @@ function renderMappingTable() {
   });
 
   document.getElementById('statsBar').innerHTML =
-    `<div class="stat">전체 <span class="val">${codes.length}</span>개</div>` +
+    `<div class="stat">${selectedBranch === '__all__' ? '전체' : selectedBranch} <span class="val">${codes.length}</span>개</div>` +
     `<div class="stat">분류완료 <span class="val green">${autoCount}</span>개</div>` +
     `<div class="stat">미분류 <span class="val ${unmappedCount > 0 ? 'gold' : 'green'}">${unmappedCount}</span>개</div>` +
     `<div class="stat">제외 <span class="val dim">${excludedCount}</span>개</div>` +
@@ -495,13 +521,26 @@ function renderMappingTable() {
   const options = TARGET_LABELS.map(l => `<option value="${l}">${l}</option>`).join('') +
     `<option value="__제외__">제외</option><option value="__영업외__">영업외</option>`;
 
-  let html = '<table><thead><tr><th>코드</th><th>계정명</th><th style="text-align:right">발생금액</th><th style="min-width:180px">→ 매핑항목</th></tr></thead><tbody>';
+  let html = tabsHtml;
+  html += '<table><thead><tr><th>코드</th><th>계정명</th>';
+  if (selectedBranch === '__all__' && branches.length > 1) {
+    html += '<th>지점</th>';
+  }
+  html += '<th style="text-align:right">발생금액</th><th style="min-width:180px">→ 매핑항목</th></tr></thead><tbody>';
   codes.forEach(c => {
     const a = accountMap[c];
     const m = a.mapping;
     const cls = m === null ? 'unmapped' : (m === '__제외__' ? 'excluded' : 'mapped');
     const selCls = m === null ? 'unmapped-sel' : '';
-    html += `<tr class="${cls}"><td>${c}</td><td>${a.name}</td><td style="text-align:right">${formatKRW(Math.abs(a.totalAmt))}</td>`;
+    const amt = selectedBranch === '__all__' ? a.totalAmt : (a.branches[selectedBranch] || 0);
+    const branchTags = Object.keys(a.branches).map(b =>
+      `<span style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-size:11px;margin:1px">${b}</span>`
+    ).join(' ');
+    html += `<tr class="${cls}"><td>${c}</td><td>${a.name}</td>`;
+    if (selectedBranch === '__all__' && branches.length > 1) {
+      html += `<td style="font-size:11px">${branchTags}</td>`;
+    }
+    html += `<td style="text-align:right">${formatKRW(Math.abs(amt))}</td>`;
     html += `<td><select class="${selCls}" data-code="${c}" onchange="onMapChange(this)"><option value="">-- 선택 --</option>${options}</select></td></tr>`;
   });
   html += '</tbody></table>';
@@ -522,6 +561,11 @@ function renderMappingTable() {
   }
 
   document.getElementById('btnToStep3').disabled = unmappedCount > 0;
+}
+
+function switchBranchFilter(branch) {
+  selectedBranch = branch;
+  renderMappingTable();
 }
 
 function onMapChange(sel) {
