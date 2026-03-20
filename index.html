@@ -115,6 +115,21 @@ th.sortable:hover { color:var(--accent); }
 .company-card .name { font-size:1.2rem; font-weight:700; margin-bottom:6px; }
 .company-card .desc { font-size:0.85rem; color:var(--text-dim); }
 
+/* Step 1.5: Card data */
+.card-preview-wrap { overflow-x:auto; border-radius:8px; border:1px solid var(--border); margin-top:16px; max-height:55vh; overflow-y:auto; }
+.card-preview-wrap table { width:100%; border-collapse:collapse; font-size:0.82rem; }
+.card-preview-wrap th { background:var(--surface2); padding:10px 12px; text-align:left; font-weight:500; border-bottom:1px solid var(--border); white-space:nowrap; position:sticky; top:0; z-index:1; }
+.card-preview-wrap td { padding:8px 12px; border-bottom:1px solid var(--border); background:var(--surface); }
+tr.card-dup td { opacity:.45; text-decoration:line-through; }
+tr.card-maybe td { background:#3d3520; }
+tr.card-new td { }
+.dup-tag { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600; }
+.dup-tag.dup { background:#7f1d1d; color:#fca5a5; }
+.dup-tag.maybe { background:#78350f; color:#fbbf24; }
+.dup-tag.new { background:#064e3b; color:#6ee7b7; }
+.card-stats { display:flex; gap:16px; align-items:center; padding:12px 16px; background:var(--surface); border:1px solid var(--border); border-radius:8px; margin-top:12px; flex-wrap:wrap; }
+.card-stats .stat { font-size:0.85rem; }
+
 /* Responsive */
 @media(max-width:768px) {
   .steps { flex-direction:column; }
@@ -130,6 +145,7 @@ th.sortable:hover { color:var(--accent); }
 
   <div class="steps" id="stepsBar" style="display:none">
     <div class="step-indicator active" id="si1"><span class="num">1</span>분개장 업로드</div>
+    <div class="step-indicator" id="si15"><span class="num">1.5</span>카드내역 (선택)</div>
     <div class="step-indicator" id="si2"><span class="num">2</span>계정 분류</div>
     <div class="step-indicator" id="si3"><span class="num">3</span>엑셀 생성</div>
   </div>
@@ -188,6 +204,36 @@ th.sortable:hover { color:var(--accent); }
     <div class="btn-group">
       <button class="btn btn-secondary" onclick="goStep(0)">← 회사 선택</button>
       <button class="btn btn-primary" id="btnToStep2" disabled>다음: 계정 분류 →</button>
+    </div>
+  </div>
+
+  <!-- STEP 1.5: Card Data -->
+  <div class="panel" id="panel15">
+    <h2 style="font-size:1rem;margin-bottom:16px">💳 카드내역 추가 반영 <span style="font-size:0.8rem;color:var(--text-dim);font-weight:400">(선택사항)</span></h2>
+    <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:16px">분개장에 반영되지 않은 카드거래를 추가합니다. 이미 분개장에 있는 거래는 자동으로 중복 감지됩니다.</p>
+
+    <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
+      <label style="font-size:0.85rem;font-weight:600">대상 지점:</label>
+      <select id="cardBranchSelect" style="padding:6px 10px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:0.85rem;font-family:inherit"></select>
+    </div>
+
+    <div class="upload-zone" id="cardZone">
+      <div class="icon">💳</div>
+      <p><strong>카드내역 파일 업로드</strong></p>
+      <p>카드내역 엑셀 파일을 드래그하거나 클릭하여 업로드하세요</p>
+      <p style="margin-top:8px;font-size:0.78rem;color:var(--text-dim)">컬럼: 사용일, 사용처, 사업자번호, 비용항목, 사업자유형, 사용액</p>
+    </div>
+    <input type="file" id="cardInput" accept=".xlsx,.xls,.csv" style="display:none">
+
+    <div id="cardStats" class="card-stats" style="display:none"></div>
+    <div class="card-preview-wrap" id="cardPreviewWrap" style="display:none">
+      <table id="cardPreviewTable"></table>
+    </div>
+
+    <div class="btn-group">
+      <button class="btn btn-secondary" onclick="goStep(1)">← 이전</button>
+      <button class="btn btn-secondary" id="btnSkipCard" onclick="skipCardStep()">건너뛰기 →</button>
+      <button class="btn btn-primary" id="btnMergeCard" style="display:none" onclick="mergeCardEntries()">💳 카드내역 병합 후 다음 →</button>
     </div>
   </div>
 
@@ -861,6 +907,8 @@ function selectCompany(companyKey) {
 // ============================================================
 // STEP NAVIGATION
 // ============================================================
+// Step order: 0, 1, 15, 2, 3
+const STEP_ORDER = [0, 1, 15, 2, 3];
 function goStep(n) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   if (n === 0) {
@@ -871,14 +919,19 @@ function goStep(n) {
     return;
   }
   document.getElementById('panel' + n).classList.add('active');
-  document.querySelectorAll('.step-indicator').forEach((s, i) => {
-    s.classList.remove('active', 'done');
-    if (i + 1 === n) s.classList.add('active');
-    else if (i + 1 < n) s.classList.add('done');
+  // Step indicators: si1, si15, si2, si3
+  const siIds = ['si1', 'si15', 'si2', 'si3'];
+  const siSteps = [1, 15, 2, 3];
+  const stepIdx = siSteps.indexOf(n);
+  siIds.forEach((id, i) => {
+    const el = document.getElementById(id);
+    el.classList.remove('active', 'done');
+    if (i === stepIdx) el.classList.add('active');
+    else if (i < stepIdx) el.classList.add('done');
   });
 }
 
-document.getElementById('btnToStep2').addEventListener('click', () => { buildAccountMap(); goStep(2); });
+document.getElementById('btnToStep2').addEventListener('click', () => { initCardStep(); goStep(15); });
 document.getElementById('btnBackTo1').addEventListener('click', () => goStep(1));
 document.getElementById('btnToStep3').addEventListener('click', () => { buildSummary(); goStep(3); });
 document.getElementById('btnBackTo2').addEventListener('click', () => goStep(2));
@@ -1205,7 +1258,7 @@ async function generateExcel() {
       const js = wb.addWorksheet(jSheetName);
       js.properties.tabColor = { argb: 'FF4472C4' };
 
-      const jHeaders = ['전표날짜', '전표번호', '구분', 'Code', '계정과목', '차변', '대변', '거래처', 'Code', '적요', '매핑항목'];
+      const jHeaders = ['전표날짜', '전표번호', '구분', 'Code', '계정과목', '차변', '대변', '거래처', 'Code', '적요', '매핑항목', '출처'];
       const jHeaderRow = js.addRow(jHeaders);
       jHeaderRow.eachCell((cell) => {
         cell.font = { name: '맑은 고딕', size: 10, bold: true, color: { argb: CLR_HEADER_FONT } };
@@ -1217,21 +1270,26 @@ async function generateExcel() {
       const data = uploadedFiles[branch].data;
       data.forEach(r => {
         const mapping = accountMap[r.code]?.mapping || '';
+        const source = r._source === 'card' ? '카드' : '';
         const row = js.addRow([
           r.date, r.num, r.type, r.code, r.account,
-          r.debit || 0, r.credit || 0, r.vendor, r.vendorCode, r.desc, mapping
+          r.debit || 0, r.credit || 0, r.vendor, r.vendorCode, r.desc, mapping, source
         ]);
         row.eachCell((cell, colNumber) => {
           cell.font = { name: '맑은 고딕', size: 10 };
           cell.border = thinBorder();
           if (colNumber === 1) { cell.numFmt = 'YYYY-MM-DD'; }
           if (colNumber === 6 || colNumber === 7) { cell.numFmt = '#,##0'; }
+          // 카드 소스 행 배경색
+          if (r._source === 'card') {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F7FF' } };
+          }
         });
       });
 
       js.columns = [
         { width: 12 }, { width: 10 }, { width: 6 }, { width: 8 }, { width: 24 },
-        { width: 14 }, { width: 14 }, { width: 14 }, { width: 8 }, { width: 24 }, { width: 14 }
+        { width: 14 }, { width: 14 }, { width: 14 }, { width: 8 }, { width: 24 }, { width: 14 }, { width: 8 }
       ];
       js.views = [{ showGridLines: false, zoomScale: 75 }];
 
@@ -1973,6 +2031,358 @@ function buildTotalSheet(wb, branches, year) {
 
   // 눈금선 끄기 + 배율 75%
   ws.views = [{ showGridLines: false, zoomScale: 75 }];
+}
+
+// ============================================================
+// STEP 1.5: CARD DATA INTEGRATION
+// ============================================================
+
+// -- Card converter mapping constants (ported from card-to-purchase-converter) --
+const CARD_ACCOUNT_MAP = {
+  '식자재매입':     { code: '15300', name: '원재료' },
+  '주류매입':       { code: '15300', name: '원재료' },
+  '기타식자재매입': { code: '15300', name: '원재료' },
+  '기타주류매입':   { code: '15300', name: '원재료' },
+  '급여':           { code: '80200', name: '급여' },
+  '상여금':         { code: '80300', name: '상여금' },
+  '복리후생비':     { code: '81100', name: '복리후생비' },
+  '식대':           { code: '81100', name: '복리후생비' },
+  '여비교통비':     { code: '81200', name: '여비교통비' },
+  '교통비':         { code: '81200', name: '여비교통비' },
+  '숙박비':         { code: '81200', name: '여비교통비' },
+  '업무추진비':     { code: '81300', name: '접대비' },
+  '접대비':         { code: '81300', name: '접대비' },
+  '통신비':         { code: '81400', name: '통신비' },
+  '수도광열비':     { code: '81500', name: '수도광열비' },
+  '세금과공과':     { code: '81700', name: '세금과공과금' },
+  '감가상각비':     { code: '81800', name: '감가상각비' },
+  '임차료':         { code: '81900', name: '지급임차료' },
+  '수선비':         { code: '82000', name: '수선비' },
+  '보험료':         { code: '82100', name: '보험료' },
+  '운반비':         { code: '82400', name: '운반비' },
+  '도서인쇄비':     { code: '82600', name: '도서인쇄비' },
+  '매장소모품':     { code: '83000', name: '소모품비' },
+  '소모품비':       { code: '83000', name: '소모품비' },
+  '지급수수료':     { code: '83100', name: '지급수수료' },
+  '채용수수료':     { code: '83100', name: '지급수수료' },
+  '청소대행':       { code: '83100', name: '지급수수료' },
+  '로열티':         { code: '83100', name: '지급수수료' },
+  '불판세척':       { code: '83100', name: '지급수수료' },
+  '전산비용':       { code: '83100', name: '지급수수료' },
+  '세무대행':       { code: '83100', name: '지급수수료' },
+  '금융수수료':     { code: '83100', name: '지급수수료' },
+  '노무대행':       { code: '83100', name: '지급수수료' },
+  '방역대행':       { code: '83100', name: '지급수수료' },
+  '폐기물처리':     { code: '83100', name: '지급수수료' },
+  '운영대행':       { code: '83100', name: '지급수수료' },
+  '광고비':         { code: '83300', name: '광고선전비' },
+  '관리비':         { code: '83700', name: '건물관리비' },
+  '주차지원비':     { code: '82200', name: '차량유지비' },
+  '교육훈련비':     { code: '82500', name: '교육훈련비' },
+  '포장비':         { code: '82800', name: '포장비' },
+  '사무용품비':     { code: '82900', name: '사무용품비' },
+};
+
+// -- Card state --
+let cardRawData = [];
+let cardEntries = [];     // converted to journal format
+let cardDupResults = [];  // { isDup: true/false/'maybe', ... }
+let cardSelectedBranch = '';
+let cardMerged = false;   // 이미 병합했는지
+
+// -- Init card step --
+function initCardStep() {
+  const branches = Object.keys(uploadedFiles).sort();
+  const sel = document.getElementById('cardBranchSelect');
+  sel.innerHTML = branches.map(b => `<option value="${b}">${b}</option>`).join('');
+  cardSelectedBranch = branches[0] || '';
+  sel.addEventListener('change', function() {
+    cardSelectedBranch = this.value;
+    if (cardEntries.length > 0) runDuplicateDetection();
+  });
+
+  // Reset card state
+  cardRawData = [];
+  cardEntries = [];
+  cardDupResults = [];
+  cardMerged = false;
+  document.getElementById('cardStats').style.display = 'none';
+  document.getElementById('cardPreviewWrap').style.display = 'none';
+  document.getElementById('btnMergeCard').style.display = 'none';
+
+  // Wire up upload
+  const cardZone = document.getElementById('cardZone');
+  const cardInput = document.getElementById('cardInput');
+
+  // Remove old listeners by cloning
+  const newZone = cardZone.cloneNode(true);
+  cardZone.parentNode.replaceChild(newZone, cardZone);
+  const newInput = cardInput.cloneNode(true);
+  cardInput.parentNode.replaceChild(newInput, cardInput);
+
+  newZone.addEventListener('click', () => newInput.click());
+  newZone.addEventListener('dragover', e => { e.preventDefault(); newZone.classList.add('dragover'); });
+  newZone.addEventListener('dragleave', () => newZone.classList.remove('dragover'));
+  newZone.addEventListener('drop', e => {
+    e.preventDefault(); newZone.classList.remove('dragover');
+    if (e.dataTransfer.files[0]) handleCardFile(e.dataTransfer.files[0]);
+  });
+  newInput.addEventListener('change', e => { if (e.target.files[0]) handleCardFile(e.target.files[0]); });
+}
+
+// -- Parse card file --
+function handleCardFile(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: true });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+      cardRawData = rows;
+      cardEntries = rows.map((r, idx) => convertCardRow(r, idx)).filter(Boolean);
+
+      if (cardEntries.length === 0) {
+        alert('카드내역에서 유효한 데이터를 찾을 수 없습니다.\n컬럼명을 확인하세요: 사용일, 사용처, 비용항목, 사용액');
+        return;
+      }
+
+      runDuplicateDetection();
+    } catch (err) {
+      alert('카드파일 파싱 오류: ' + err.message);
+      console.error(err);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// -- Convert single card row to journal format --
+function convertCardRow(r, idx) {
+  // Parse date
+  let dt = null;
+  const rawDate = r['사용일'] || r['거래일자'] || r['이용일자'] || r['승인일자'];
+  if (!rawDate) return null;
+  if (rawDate instanceof Date) {
+    dt = rawDate;
+  } else {
+    const s = String(rawDate).replace(/[.\-\/]/g, '');
+    if (s.length === 8) {
+      dt = new Date(parseInt(s.substring(0,4)), parseInt(s.substring(4,6))-1, parseInt(s.substring(6,8)));
+    } else {
+      dt = new Date(rawDate);
+    }
+  }
+  if (!dt || isNaN(dt.getTime())) return null;
+
+  // Parse amount
+  const amount = parseNum(r['사용액'] || r['이용금액'] || r['승인금액'] || r['금액'] || 0);
+  if (amount === 0) return null;
+
+  // Vendor
+  const vendor = String(r['사용처'] || r['가맹점명'] || r['이용가맹점'] || '').trim();
+
+  // Expense item
+  const expenseItem = String(r['비용항목'] || r['항목'] || '').trim();
+
+  // Map to account code
+  const mapped = CARD_ACCOUNT_MAP[expenseItem];
+  const code = mapped ? mapped.code : '83100'; // default: 지급수수료
+  const account = mapped ? mapped.name : '지급수수료';
+
+  // Business number
+  let bizNo = String(r['사업자번호'] || '').replace(/[^\d]/g, '');
+  if (bizNo.length === 10) bizNo = bizNo.slice(0,3) + '-' + bizNo.slice(3,5) + '-' + bizNo.slice(5);
+
+  return {
+    date: dt,
+    num: 'C' + String(idx + 1).padStart(4, '0'),
+    type: '카드',
+    code: code,
+    account: account,
+    debit: Math.abs(amount),
+    credit: 0,
+    vendor: vendor,
+    vendorCode: bizNo,
+    desc: '[카드] ' + expenseItem,
+    _source: 'card',
+    _expenseItem: expenseItem,
+    _originalAmount: amount,
+  };
+}
+
+// -- Duplicate detection --
+function runDuplicateDetection() {
+  if (!cardSelectedBranch || !uploadedFiles[cardSelectedBranch]) return;
+  const journalData = uploadedFiles[cardSelectedBranch].data;
+
+  cardDupResults = cardEntries.map(card => {
+    return checkDuplicate(card, journalData);
+  });
+
+  renderCardPreview();
+}
+
+function normalizeStr(s) {
+  return (s || '').replace(/[\s\(\)（）주식회사\(주\)㈜]/g, '').toLowerCase();
+}
+
+function calcSimilarity(a, b) {
+  if (!a || !b) return 0;
+  // Containment check
+  if (a.includes(b) || b.includes(a)) return 1.0;
+  // Bigram Jaccard
+  const bigrams = (s) => {
+    const bg = new Set();
+    for (let i = 0; i < s.length - 1; i++) bg.add(s.substring(i, i+2));
+    return bg;
+  };
+  const ba = bigrams(a), bb = bigrams(b);
+  if (ba.size === 0 || bb.size === 0) return 0;
+  let inter = 0;
+  for (const x of ba) { if (bb.has(x)) inter++; }
+  return inter / (ba.size + bb.size - inter);
+}
+
+function checkDuplicate(cardEntry, journalEntries) {
+  // Step 1: date + amount match
+  const candidates = journalEntries.filter(j => {
+    if (!j.date || !cardEntry.date) return false;
+    const sameDate = j.date.getFullYear() === cardEntry.date.getFullYear() &&
+                     j.date.getMonth() === cardEntry.date.getMonth() &&
+                     j.date.getDate() === cardEntry.date.getDate();
+    if (!sameDate) return false;
+    const cardAmt = cardEntry.debit;
+    const journalAmt = Math.max(j.debit, j.credit);
+    return Math.abs(cardAmt - journalAmt) <= 1;
+  });
+
+  if (candidates.length === 0) return { isDup: false };
+
+  // Step 2: vendor/desc similarity
+  const cardVendor = normalizeStr(cardEntry.vendor);
+  for (const c of candidates) {
+    const jVendor = normalizeStr(c.vendor);
+    const jDesc = normalizeStr(c.desc);
+    const vendorSim = calcSimilarity(cardVendor, jVendor);
+    const descSim = calcSimilarity(cardVendor, jDesc);
+    if (vendorSim > 0.4 || descSim > 0.3) {
+      return { isDup: true, matchedVendor: c.vendor, confidence: Math.max(vendorSim, descSim) };
+    }
+  }
+
+  // Date+amount match but vendor mismatch
+  return { isDup: 'maybe', candidates: candidates.map(c => c.vendor).join(', ') };
+}
+
+// -- Render card preview --
+function renderCardPreview() {
+  const stats = document.getElementById('cardStats');
+  const wrap = document.getElementById('cardPreviewWrap');
+  const table = document.getElementById('cardPreviewTable');
+
+  let dupCount = 0, maybeCount = 0, newCount = 0;
+  cardDupResults.forEach(r => {
+    if (r.isDup === true) dupCount++;
+    else if (r.isDup === 'maybe') maybeCount++;
+    else newCount++;
+  });
+
+  stats.style.display = 'flex';
+  stats.innerHTML =
+    `<div class="stat">전체 <span class="val">${cardEntries.length}</span>건</div>` +
+    `<div class="stat">중복 <span class="val red">${dupCount}</span>건</div>` +
+    `<div class="stat">확인필요 <span class="val gold">${maybeCount}</span>건</div>` +
+    `<div class="stat">신규추가 <span class="val green">${newCount}</span>건</div>`;
+
+  let html = '<thead><tr><th>상태</th><th>포함</th><th>사용일</th><th>사용처</th><th>비용항목</th><th>계정코드</th><th style="text-align:right">사용액</th><th>비고</th></tr></thead><tbody>';
+
+  cardEntries.forEach((entry, idx) => {
+    const dup = cardDupResults[idx];
+    let cls, tagCls, tagText, note = '';
+    let checked;
+
+    if (dup.isDup === true) {
+      cls = 'card-dup'; tagCls = 'dup'; tagText = '중복';
+      note = '분개장: ' + (dup.matchedVendor || '');
+      checked = false;
+    } else if (dup.isDup === 'maybe') {
+      cls = 'card-maybe'; tagCls = 'maybe'; tagText = '확인필요';
+      note = '유사: ' + (dup.candidates || '');
+      checked = false;
+    } else {
+      cls = 'card-new'; tagCls = 'new'; tagText = '신규';
+      checked = true;
+    }
+
+    const dateStr = entry.date instanceof Date
+      ? `${entry.date.getFullYear()}-${String(entry.date.getMonth()+1).padStart(2,'0')}-${String(entry.date.getDate()).padStart(2,'0')}`
+      : '';
+
+    html += `<tr class="${cls}">`;
+    html += `<td><span class="dup-tag ${tagCls}">${tagText}</span></td>`;
+    html += `<td><input type="checkbox" class="card-check" data-idx="${idx}" ${checked ? 'checked' : ''} onchange="updateCardMergeBtn()"></td>`;
+    html += `<td>${dateStr}</td>`;
+    html += `<td>${entry.vendor}</td>`;
+    html += `<td>${entry._expenseItem}</td>`;
+    html += `<td>${entry.code} (${entry.account})</td>`;
+    html += `<td style="text-align:right">${formatKRW(entry.debit)}</td>`;
+    html += `<td style="font-size:0.78rem;color:var(--text-dim);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${note}</td>`;
+    html += `</tr>`;
+  });
+
+  html += '</tbody>';
+  table.innerHTML = html;
+  wrap.style.display = 'block';
+
+  updateCardMergeBtn();
+}
+
+function updateCardMergeBtn() {
+  const checks = document.querySelectorAll('.card-check:checked');
+  const btn = document.getElementById('btnMergeCard');
+  btn.style.display = checks.length > 0 ? 'inline-flex' : 'none';
+  btn.textContent = `💳 카드내역 ${checks.length}건 병합 후 다음 →`;
+}
+
+// -- Skip card step --
+function skipCardStep() {
+  buildAccountMap();
+  goStep(2);
+}
+
+// -- Merge card entries --
+function mergeCardEntries() {
+  if (cardMerged) {
+    alert('이미 병합되었습니다. 다시 병합하려면 Step 1로 돌아가주세요.');
+    return;
+  }
+  const checks = document.querySelectorAll('.card-check:checked');
+  const selectedIdxs = [...checks].map(c => parseInt(c.dataset.idx));
+
+  if (selectedIdxs.length === 0) {
+    alert('병합할 카드내역이 없습니다.');
+    return;
+  }
+
+  const branch = cardSelectedBranch;
+  if (!uploadedFiles[branch]) {
+    alert('대상 지점을 선택하세요.');
+    return;
+  }
+
+  // Append selected card entries to journal data
+  let addedCount = 0;
+  selectedIdxs.forEach(idx => {
+    const entry = { ...cardEntries[idx] };
+    uploadedFiles[branch].data.push(entry);
+    addedCount++;
+  });
+
+  cardMerged = true;
+  console.log(`✅ 카드내역 ${addedCount}건을 ${branch} 분개장에 병합 완료`);
+
+  buildAccountMap();
+  goStep(2);
 }
 </script>
 </body>
