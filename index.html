@@ -2193,6 +2193,8 @@ function initCardStep() {
   cardFilterBranch = '__all__';
   cardFilterStatus = '__all__';
   cardFilterText = '';
+  cardViewMode = 'summary';
+  window._cardCheckedSet = new Set();
   document.getElementById('cardStats').style.display = 'none';
   document.getElementById('cardPreviewWrap').style.display = 'none';
   document.getElementById('btnMergeCard').style.display = 'none';
@@ -2393,8 +2395,15 @@ function applyCardBranchMapping() {
     e._branch = cardBranchMap[e._cardUser] || '';
   });
 
+  // 체크 상태 초기화
+  window._cardCheckedSet = new Set();
+  window._cardCheckedSet._initialized = false;
+
   // 지점별 중복 검출
   runDuplicateDetectionMultiBranch();
+
+  // 초기 렌더 후 마킹
+  window._cardCheckedSet._initialized = true;
 }
 
 function runDuplicateDetectionMultiBranch() {
@@ -2457,10 +2466,13 @@ function checkDuplicate(cardEntry, journalEntries) {
   return { isDup: 'maybe', candidates: candidates.map(c => c.vendor).join(', ') };
 }
 
-// -- Card filter state --
+// -- Card filter/sort state --
 let cardFilterBranch = '__all__';
 let cardFilterStatus = '__all__';
 let cardFilterText = '';
+let cardSortCol = 'branch'; // branch, date, vendor, item, amount
+let cardSortAsc = true;
+let cardViewMode = 'summary'; // 'summary' or 'detail'
 
 // -- Render card preview (multi-branch) --
 function renderCardPreview() {
@@ -2468,7 +2480,7 @@ function renderCardPreview() {
   const wrap = document.getElementById('cardPreviewWrap');
   const table = document.getElementById('cardPreviewTable');
 
-  // 전체 통계 (필터 전 기준)
+  // 전체 통계
   let dupCount = 0, maybeCount = 0, newCount = 0, excludedCount = 0;
   cardDupResults.forEach(r => {
     if (r.isDup === 'excluded') excludedCount++;
@@ -2485,13 +2497,15 @@ function renderCardPreview() {
     `<div class="stat">신규추가 <span class="val green">${newCount}</span>건</div>` +
     (excludedCount > 0 ? `<div class="stat">제외 <span class="val dim">${excludedCount}</span>건</div>` : '');
 
-  // 필터링에 사용할 지점/비용항목 목록
-  const branches = Object.keys(uploadedFiles).sort();
   const branchesInCard = [...new Set(cardEntries.filter((_, i) => cardDupResults[i].isDup !== 'excluded').map(e => e._branch))].sort();
 
-  // 필터 UI
+  // 필터 + 뷰모드 UI
   const selStyle = 'padding:5px 8px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:0.82rem;font-family:inherit';
   let filterHtml = `<div style="display:flex;gap:8px;margin:12px 0;flex-wrap:wrap;align-items:center">`;
+  // 뷰 모드 토글
+  filterHtml += `<button class="btn ${cardViewMode==='summary'?'btn-primary':'btn-secondary'}" style="padding:5px 12px;font-size:0.8rem" onclick="cardViewMode='summary';renderCardPreview()">항목별 요약</button>`;
+  filterHtml += `<button class="btn ${cardViewMode==='detail'?'btn-primary':'btn-secondary'}" style="padding:5px 12px;font-size:0.8rem" onclick="cardViewMode='detail';renderCardPreview()">개별 상세</button>`;
+  filterHtml += `<span style="color:var(--border)">|</span>`;
   // 지점 필터
   filterHtml += `<select onchange="cardFilterBranch=this.value;renderCardPreview()" style="${selStyle}">`;
   filterHtml += `<option value="__all__"${cardFilterBranch==='__all__'?' selected':''}>전체 지점</option>`;
@@ -2506,11 +2520,17 @@ function renderCardPreview() {
   filterHtml += `</select>`;
   // 텍스트 검색
   filterHtml += `<input type="text" placeholder="🔍 사용처/비용항목 검색" value="${cardFilterText}" oninput="cardFilterText=this.value;renderCardPreview()" style="flex:1;min-width:160px;${selStyle}">`;
-  // 일괄 선택/해제
-  filterHtml += `<button class="btn btn-secondary" style="padding:5px 12px;font-size:0.8rem" onclick="cardCheckAll(true)">전체 선택</button>`;
-  filterHtml += `<button class="btn btn-secondary" style="padding:5px 12px;font-size:0.8rem" onclick="cardCheckAll(false)">전체 해제</button>`;
-  filterHtml += `<button class="btn btn-secondary" style="padding:5px 12px;font-size:0.8rem;color:var(--green);border-color:var(--green)" onclick="cardCheckNewOnly()">신규만 선택</button>`;
   filterHtml += `</div>`;
+  // 일괄 버튼 (detail 모드만)
+  if (cardViewMode === 'detail') {
+    filterHtml += `<div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">`;
+    filterHtml += `<button class="btn btn-secondary" style="padding:4px 10px;font-size:0.78rem" onclick="cardCheckAll(true)">전체 선택</button>`;
+    filterHtml += `<button class="btn btn-secondary" style="padding:4px 10px;font-size:0.78rem" onclick="cardCheckAll(false)">전체 해제</button>`;
+    filterHtml += `<button class="btn btn-secondary" style="padding:4px 10px;font-size:0.78rem;color:var(--green);border-color:var(--green)" onclick="cardCheckNewOnly()">신규만 선택</button>`;
+    filterHtml += `</div>`;
+  }
+
+  document.getElementById('cardFilterArea').innerHTML = filterHtml;
 
   // 필터 적용
   let visibleIdxs = cardEntries.map((_, i) => i)
@@ -2536,26 +2556,144 @@ function renderCardPreview() {
     });
   }
 
-  // 지점별 정렬
-  visibleIdxs.sort((a, b) => {
-    const ba = cardEntries[a]._branch || 'ㅎ';
-    const bb = cardEntries[b]._branch || 'ㅎ';
-    return ba.localeCompare(bb, 'ko');
+  if (cardViewMode === 'summary') {
+    renderCardSummaryView(visibleIdxs);
+  } else {
+    renderCardDetailView(visibleIdxs);
+  }
+
+  wrap.style.display = 'block';
+  updateCardMergeBtn();
+}
+
+// === 항목별 요약 뷰 (Step 2 스타일) ===
+function renderCardSummaryView(visibleIdxs) {
+  const table = document.getElementById('cardPreviewTable');
+
+  // 비용항목(계정코드) 기준 그룹핑
+  const groups = {};
+  visibleIdxs.forEach(idx => {
+    const e = cardEntries[idx];
+    const dup = cardDupResults[idx];
+    const key = e._expenseItem || '(미분류)';
+    if (!groups[key]) {
+      groups[key] = { code: e.code, account: e.account, branches: {}, totalAmt: 0, count: 0, dupCount: 0, newCount: 0, maybeCount: 0, idxs: [] };
+    }
+    const g = groups[key];
+    if (!g.branches[e._branch]) g.branches[e._branch] = 0;
+    g.branches[e._branch] += e.debit;
+    g.totalAmt += e.debit;
+    g.count++;
+    g.idxs.push(idx);
+    if (dup.isDup === true) g.dupCount++;
+    else if (dup.isDup === 'maybe') g.maybeCount++;
+    else g.newCount++;
   });
 
-  let tableHtml = '<thead><tr><th>상태</th><th>포함</th><th>지점</th><th>사용일</th><th>사용처</th><th>비용항목</th><th>계정코드</th><th style="text-align:right">사용액</th><th>비고</th></tr></thead><tbody>';
+  // 정렬
+  const si = (col) => cardSortCol === col ? (cardSortAsc ? ' ▲' : ' ▼') : ' ↕';
+  let sortedKeys = Object.keys(groups);
+  sortedKeys.sort((a, b) => {
+    let va, vb;
+    if (cardSortCol === 'item') { va = a; vb = b; }
+    else if (cardSortCol === 'code') { va = groups[a].code; vb = groups[b].code; }
+    else if (cardSortCol === 'amount') { return cardSortAsc ? groups[a].totalAmt - groups[b].totalAmt : groups[b].totalAmt - groups[a].totalAmt; }
+    else if (cardSortCol === 'count') { return cardSortAsc ? groups[a].count - groups[b].count : groups[b].count - groups[a].count; }
+    else { va = a; vb = b; }
+    const cmp = String(va).localeCompare(String(vb), 'ko', { numeric: true });
+    return cardSortAsc ? cmp : -cmp;
+  });
 
-  let lastBranch = null;
+  let html = '<thead><tr>';
+  html += `<th>포함</th>`;
+  html += `<th class="sortable" onclick="toggleCardSort('item')">비용항목${si('item')}</th>`;
+  html += `<th class="sortable" onclick="toggleCardSort('code')">계정코드${si('code')}</th>`;
+  html += `<th>지점</th>`;
+  html += `<th class="sortable" onclick="toggleCardSort('count')" style="text-align:center">건수${si('count')}</th>`;
+  html += `<th>상태</th>`;
+  html += `<th class="sortable" onclick="toggleCardSort('amount')" style="text-align:right">합계금액${si('amount')}</th>`;
+  html += '</tr></thead><tbody>';
+
+  sortedKeys.forEach(key => {
+    const g = groups[key];
+    const branchTags = Object.entries(g.branches).map(([b, amt]) =>
+      `<span style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-size:11px;margin:1px" title="${b}: ${formatKRW(amt)}">${b}</span>`
+    ).join(' ');
+
+    // 전체 신규이면 체크, 아니면 미체크 — 초기값 반영
+    const allNew = g.newCount === g.count;
+    if (allNew && !window._cardCheckedSet._initialized) {
+      g.idxs.forEach(idx => window._cardCheckedSet.add(idx));
+    }
+    const statusHtml =
+      (g.newCount > 0 ? `<span class="dup-tag new">${g.newCount}</span> ` : '') +
+      (g.dupCount > 0 ? `<span class="dup-tag dup">${g.dupCount}</span> ` : '') +
+      (g.maybeCount > 0 ? `<span class="dup-tag maybe">${g.maybeCount}</span> ` : '');
+
+    html += `<tr class="${allNew ? '' : g.dupCount === g.count ? 'card-dup' : ''}">`;
+    html += `<td><input type="checkbox" class="card-group-check" data-idxs="${g.idxs.join(',')}" ${allNew ? 'checked' : ''} onchange="onCardGroupCheck(this)"></td>`;
+    html += `<td style="font-weight:500">${key}</td>`;
+    html += `<td>${g.code} (${g.account})</td>`;
+    html += `<td style="font-size:11px">${branchTags}</td>`;
+    html += `<td style="text-align:center">${g.count}</td>`;
+    html += `<td>${statusHtml}</td>`;
+    html += `<td style="text-align:right;font-weight:500">${formatKRW(g.totalAmt)}</td>`;
+    html += `</tr>`;
+  });
+
+  // 합계 행
+  const totalAmt = visibleIdxs.reduce((s, i) => s + cardEntries[i].debit, 0);
+  html += `<tr style="background:var(--surface2);font-weight:700"><td></td><td>합계</td><td></td><td></td><td style="text-align:center">${visibleIdxs.length}</td><td></td><td style="text-align:right">${formatKRW(totalAmt)}</td></tr>`;
+
+  html += '</tbody>';
+  table.innerHTML = html;
+}
+
+// 그룹 체크박스 → 개별 항목 체크 상태 동기화
+function onCardGroupCheck(cb) {
+  const idxs = cb.dataset.idxs.split(',').map(Number);
+  const checked = cb.checked;
+  // 히든 체크박스 상태 업데이트 (내부 상태 관리)
+  if (!window._cardCheckedSet) window._cardCheckedSet = new Set();
+  idxs.forEach(idx => {
+    if (checked) window._cardCheckedSet.add(idx);
+    else window._cardCheckedSet.delete(idx);
+  });
+  updateCardMergeBtn();
+}
+
+// === 개별 상세 뷰 ===
+function renderCardDetailView(visibleIdxs) {
+  const table = document.getElementById('cardPreviewTable');
+
+  // 정렬
+  const si = (col) => cardSortCol === col ? (cardSortAsc ? ' ▲' : ' ▼') : ' ↕';
+  visibleIdxs.sort((a, b) => {
+    const ea = cardEntries[a], eb = cardEntries[b];
+    let va, vb;
+    if (cardSortCol === 'branch') { va = ea._branch || ''; vb = eb._branch || ''; }
+    else if (cardSortCol === 'date') { va = ea.date?.getTime() || 0; vb = eb.date?.getTime() || 0; return cardSortAsc ? va - vb : vb - va; }
+    else if (cardSortCol === 'vendor') { va = ea.vendor; vb = eb.vendor; }
+    else if (cardSortCol === 'item') { va = ea._expenseItem; vb = eb._expenseItem; }
+    else if (cardSortCol === 'amount') { return cardSortAsc ? ea.debit - eb.debit : eb.debit - ea.debit; }
+    else { va = ea._branch || ''; vb = eb._branch || ''; }
+    const cmp = String(va).localeCompare(String(vb), 'ko', { numeric: true });
+    return cardSortAsc ? cmp : -cmp;
+  });
+
+  let html = '<thead><tr>';
+  html += `<th>상태</th><th>포함</th>`;
+  html += `<th class="sortable" onclick="toggleCardSort('branch')">지점${si('branch')}</th>`;
+  html += `<th class="sortable" onclick="toggleCardSort('date')">사용일${si('date')}</th>`;
+  html += `<th class="sortable" onclick="toggleCardSort('vendor')">사용처${si('vendor')}</th>`;
+  html += `<th class="sortable" onclick="toggleCardSort('item')">비용항목${si('item')}</th>`;
+  html += `<th>계정코드</th>`;
+  html += `<th class="sortable" style="text-align:right" onclick="toggleCardSort('amount')">사용액${si('amount')}</th>`;
+  html += `<th>비고</th></tr></thead><tbody>';
+
   visibleIdxs.forEach(idx => {
     const entry = cardEntries[idx];
     const dup = cardDupResults[idx];
-    const branch = entry._branch;
-
-    if (branch !== lastBranch) {
-      const branchCount = visibleIdxs.filter(i => cardEntries[i]._branch === branch).length;
-      tableHtml += `<tr><td colspan="9" style="background:var(--surface2);padding:8px 12px;font-weight:600;font-size:0.85rem;color:var(--accent)">📍 ${branch} (${branchCount}건)</td></tr>`;
-      lastBranch = branch;
-    }
 
     let cls, tagCls, tagText, note = '';
     let checked;
@@ -2577,33 +2715,30 @@ function renderCardPreview() {
       ? `${entry.date.getFullYear()}-${String(entry.date.getMonth()+1).padStart(2,'0')}-${String(entry.date.getDate()).padStart(2,'0')}`
       : '';
 
-    tableHtml += `<tr class="${cls}">`;
-    tableHtml += `<td><span class="dup-tag ${tagCls}">${tagText}</span></td>`;
-    tableHtml += `<td><input type="checkbox" class="card-check" data-idx="${idx}" ${checked ? 'checked' : ''} onchange="updateCardMergeBtn()"></td>`;
-    tableHtml += `<td style="font-size:0.8rem">${branch}</td>`;
-    tableHtml += `<td>${dateStr}</td>`;
-    tableHtml += `<td>${entry.vendor}</td>`;
-    tableHtml += `<td>${entry._expenseItem}</td>`;
-    tableHtml += `<td>${entry.code} (${entry.account})</td>`;
-    tableHtml += `<td style="text-align:right">${formatKRW(entry.debit)}</td>`;
-    tableHtml += `<td style="font-size:0.78rem;color:var(--text-dim);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${note}</td>`;
-    tableHtml += `</tr>`;
+    html += `<tr class="${cls}">`;
+    html += `<td><span class="dup-tag ${tagCls}">${tagText}</span></td>`;
+    html += `<td><input type="checkbox" class="card-check" data-idx="${idx}" ${checked ? 'checked' : ''} onchange="updateCardMergeBtn()"></td>`;
+    html += `<td style="font-size:0.8rem">${entry._branch}</td>`;
+    html += `<td>${dateStr}</td>`;
+    html += `<td>${entry.vendor}</td>`;
+    html += `<td>${entry._expenseItem}</td>`;
+    html += `<td>${entry.code} (${entry.account})</td>`;
+    html += `<td style="text-align:right">${formatKRW(entry.debit)}</td>`;
+    html += `<td style="font-size:0.78rem;color:var(--text-dim);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${note}</td>`;
+    html += `</tr>`;
   });
 
-  tableHtml += '</tbody>';
-
-  // 필터된 건수 표시
-  filterHtml += `<span style="font-size:0.82rem;color:var(--text-dim)">${visibleIdxs.length}건 표시</span>`;
-
-  table.innerHTML = tableHtml;
-  // 필터 영역은 테이블 위에 삽입
-  wrap.style.display = 'block';
-  document.getElementById('cardFilterArea').innerHTML = filterHtml;
-
-  updateCardMergeBtn();
+  html += '</tbody>';
+  table.innerHTML = html;
 }
 
-// 일괄 체크 조작 (현재 보이는 항목만)
+function toggleCardSort(col) {
+  if (cardSortCol === col) { cardSortAsc = !cardSortAsc; }
+  else { cardSortCol = col; cardSortAsc = true; }
+  renderCardPreview();
+}
+
+// 일괄 체크 조작
 function cardCheckAll(checked) {
   document.querySelectorAll('.card-check').forEach(cb => { cb.checked = checked; });
   updateCardMergeBtn();
@@ -2617,10 +2752,17 @@ function cardCheckNewOnly() {
 }
 
 function updateCardMergeBtn() {
-  const checks = document.querySelectorAll('.card-check:checked');
+  let count = 0;
+  if (cardViewMode === 'summary') {
+    // 그룹 체크박스에서 선택된 개별 건수 계산
+    if (!window._cardCheckedSet) window._cardCheckedSet = new Set();
+    count = window._cardCheckedSet.size;
+  } else {
+    count = document.querySelectorAll('.card-check:checked').length;
+  }
   const btn = document.getElementById('btnMergeCard');
-  btn.style.display = checks.length > 0 ? 'inline-flex' : 'none';
-  btn.textContent = `💳 카드내역 ${checks.length}건 병합 → 계정 재분류`;
+  btn.style.display = count > 0 ? 'inline-flex' : 'none';
+  btn.textContent = `💳 카드내역 ${count}건 병합 → 계정 재분류`;
 }
 
 // -- Merge card entries (multi-branch) --
@@ -2629,8 +2771,14 @@ function mergeCardEntries() {
     alert('이미 병합되었습니다. 다시 병합하려면 Step 1로 돌아가주세요.');
     return;
   }
-  const checks = document.querySelectorAll('.card-check:checked');
-  const selectedIdxs = [...checks].map(c => parseInt(c.dataset.idx));
+
+  let selectedIdxs;
+  if (cardViewMode === 'summary') {
+    selectedIdxs = [...(window._cardCheckedSet || [])];
+  } else {
+    const checks = document.querySelectorAll('.card-check:checked');
+    selectedIdxs = [...checks].map(c => parseInt(c.dataset.idx));
+  }
 
   if (selectedIdxs.length === 0) {
     alert('병합할 카드내역이 없습니다.');
