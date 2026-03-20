@@ -249,6 +249,7 @@ tr.card-new td { }
 
     <div id="cardStats" class="card-stats" style="display:none"></div>
     <div id="cardFilterArea"></div>
+    <div id="cardExcludeWarn" class="warn-box" style="display:none;margin-bottom:8px"></div>
     <div class="card-preview-wrap" id="cardPreviewWrap" style="display:none">
       <table id="cardPreviewTable"></table>
     </div>
@@ -2200,6 +2201,7 @@ function initCardStep() {
   document.getElementById('btnMergeCard').style.display = 'none';
   document.getElementById('cardBranchMappingArea').innerHTML = '';
   document.getElementById('cardFilterArea').innerHTML = '';
+  document.getElementById('cardExcludeWarn').style.display = 'none';
 
   // Wire up upload
   const cardZone = document.getElementById('cardZone');
@@ -2577,9 +2579,11 @@ function renderCardSummaryView(visibleIdxs) {
     const dup = cardDupResults[idx];
     const key = e._expenseItem || '(미분류)';
     if (!groups[key]) {
-      groups[key] = { code: e.code, account: e.account, branches: {}, totalAmt: 0, count: 0, dupCount: 0, newCount: 0, maybeCount: 0, idxs: [] };
+      groups[key] = { code: e.code, account: e.account, mapping: '', branches: {}, totalAmt: 0, count: 0, dupCount: 0, newCount: 0, maybeCount: 0, idxs: [] };
     }
     const g = groups[key];
+    // 매핑항목 조회 (accountMap에서)
+    g.mapping = accountMap[e.code]?.mapping || '';
     if (!g.branches[e._branch]) g.branches[e._branch] = 0;
     g.branches[e._branch] += e.debit;
     g.totalAmt += e.debit;
@@ -2597,6 +2601,7 @@ function renderCardSummaryView(visibleIdxs) {
     let va, vb;
     if (cardSortCol === 'item') { va = a; vb = b; }
     else if (cardSortCol === 'code') { va = groups[a].code; vb = groups[b].code; }
+    else if (cardSortCol === 'mapping') { va = groups[a].mapping || 'ㅎ'; vb = groups[b].mapping || 'ㅎ'; }
     else if (cardSortCol === 'amount') { return cardSortAsc ? groups[a].totalAmt - groups[b].totalAmt : groups[b].totalAmt - groups[a].totalAmt; }
     else if (cardSortCol === 'count') { return cardSortAsc ? groups[a].count - groups[b].count : groups[b].count - groups[a].count; }
     else { va = a; vb = b; }
@@ -2608,17 +2613,29 @@ function renderCardSummaryView(visibleIdxs) {
   html += `<th>포함</th>`;
   html += `<th class="sortable" onclick="toggleCardSort('item')">비용항목${si('item')}</th>`;
   html += `<th class="sortable" onclick="toggleCardSort('code')">계정코드${si('code')}</th>`;
+  html += `<th class="sortable" onclick="toggleCardSort('mapping')">→ 손익 매핑${si('mapping')}</th>`;
   html += `<th>지점</th>`;
   html += `<th class="sortable" onclick="toggleCardSort('count')" style="text-align:center">건수${si('count')}</th>`;
   html += `<th>상태</th>`;
   html += `<th class="sortable" onclick="toggleCardSort('amount')" style="text-align:right">합계금액${si('amount')}</th>`;
   html += '</tr></thead><tbody>';
 
+  let reflectedAmt = 0, excludedAmt = 0;
+
   sortedKeys.forEach(key => {
     const g = groups[key];
     const branchTags = Object.entries(g.branches).map(([b, amt]) =>
       `<span style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-size:11px;margin:1px" title="${b}: ${formatKRW(amt)}">${b}</span>`
     ).join(' ');
+
+    // 매핑 상태 판별
+    const isExcluded = !g.mapping || g.mapping === '__제외__' || g.mapping === '__영업외__';
+    if (isExcluded) excludedAmt += g.totalAmt;
+    else reflectedAmt += g.totalAmt;
+
+    const mappingDisplay = isExcluded
+      ? `<span style="color:var(--red);font-weight:600">${g.mapping || '(미매핑)'}</span>`
+      : `<span style="color:var(--green)">${g.mapping}</span>`;
 
     // 전체 신규이면 체크, 아니면 미체크 — 초기값 반영
     const allNew = g.newCount === g.count;
@@ -2630,10 +2647,12 @@ function renderCardSummaryView(visibleIdxs) {
       (g.dupCount > 0 ? `<span class="dup-tag dup">${g.dupCount}</span> ` : '') +
       (g.maybeCount > 0 ? `<span class="dup-tag maybe">${g.maybeCount}</span> ` : '');
 
-    html += `<tr class="${allNew ? '' : g.dupCount === g.count ? 'card-dup' : ''}">`;
+    const rowCls = isExcluded ? 'style="background:#3d2020"' : (g.dupCount === g.count ? 'class="card-dup"' : '');
+    html += `<tr ${rowCls}>`;
     html += `<td><input type="checkbox" class="card-group-check" data-idxs="${g.idxs.join(',')}" ${allNew ? 'checked' : ''} onchange="onCardGroupCheck(this)"></td>`;
     html += `<td style="font-weight:500">${key}</td>`;
     html += `<td>${g.code} (${g.account})</td>`;
+    html += `<td>${mappingDisplay}</td>`;
     html += `<td style="font-size:11px">${branchTags}</td>`;
     html += `<td style="text-align:center">${g.count}</td>`;
     html += `<td>${statusHtml}</td>`;
@@ -2643,10 +2662,21 @@ function renderCardSummaryView(visibleIdxs) {
 
   // 합계 행
   const totalAmt = visibleIdxs.reduce((s, i) => s + cardEntries[i].debit, 0);
-  html += `<tr style="background:var(--surface2);font-weight:700"><td></td><td>합계</td><td></td><td></td><td style="text-align:center">${visibleIdxs.length}</td><td></td><td style="text-align:right">${formatKRW(totalAmt)}</td></tr>`;
+  html += `<tr style="background:var(--surface2);font-weight:700"><td></td><td>합계</td><td></td><td></td><td></td><td style="text-align:center">${visibleIdxs.length}</td><td></td><td style="text-align:right">${formatKRW(totalAmt)}</td></tr>`;
 
   html += '</tbody>';
   table.innerHTML = html;
+
+  // 제외 항목 경고
+  if (excludedAmt > 0) {
+    const warnEl = document.getElementById('cardExcludeWarn');
+    if (warnEl) {
+      warnEl.style.display = 'block';
+      warnEl.innerHTML = `⚠️ 카드내역 중 <strong style="color:var(--red)">${formatKRW(excludedAmt)}</strong>이 손익에 미반영됩니다 (제외/영업외/미매핑).<br>` +
+        `&nbsp;&nbsp;&nbsp;손익 반영액: <strong style="color:var(--green)">${formatKRW(reflectedAmt)}</strong> / 전체: ${formatKRW(totalAmt)}<br>` +
+        `&nbsp;&nbsp;&nbsp;→ Step 2에서 해당 계정코드의 매핑을 변경하면 반영됩니다.`;
+    }
+  }
 }
 
 // 그룹 체크박스 → 개별 항목 체크 상태 동기화
@@ -2675,6 +2705,7 @@ function renderCardDetailView(visibleIdxs) {
     else if (cardSortCol === 'date') { va = ea.date?.getTime() || 0; vb = eb.date?.getTime() || 0; return cardSortAsc ? va - vb : vb - va; }
     else if (cardSortCol === 'vendor') { va = ea.vendor; vb = eb.vendor; }
     else if (cardSortCol === 'item') { va = ea._expenseItem; vb = eb._expenseItem; }
+    else if (cardSortCol === 'mapping') { va = accountMap[ea.code]?.mapping || 'ㅎ'; vb = accountMap[eb.code]?.mapping || 'ㅎ'; }
     else if (cardSortCol === 'amount') { return cardSortAsc ? ea.debit - eb.debit : eb.debit - ea.debit; }
     else { va = ea._branch || ''; vb = eb._branch || ''; }
     const cmp = String(va).localeCompare(String(vb), 'ko', { numeric: true });
@@ -2688,6 +2719,7 @@ function renderCardDetailView(visibleIdxs) {
   html += `<th class="sortable" onclick="toggleCardSort('vendor')">사용처${si('vendor')}</th>`;
   html += `<th class="sortable" onclick="toggleCardSort('item')">비용항목${si('item')}</th>`;
   html += `<th>계정코드</th>`;
+  html += `<th class="sortable" onclick="toggleCardSort('mapping')">→ 손익 매핑${si('mapping')}</th>`;
   html += `<th class="sortable" style="text-align:right" onclick="toggleCardSort('amount')">사용액${si('amount')}</th>`;
   html += `<th>비고</th></tr></thead><tbody>';
 
@@ -2723,6 +2755,9 @@ function renderCardDetailView(visibleIdxs) {
     html += `<td>${entry.vendor}</td>`;
     html += `<td>${entry._expenseItem}</td>`;
     html += `<td>${entry.code} (${entry.account})</td>`;
+    const entryMapping = accountMap[entry.code]?.mapping || '';
+    const isExcl = !entryMapping || entryMapping === '__제외__' || entryMapping === '__영업외__';
+    html += `<td style="color:${isExcl ? 'var(--red)' : 'var(--green)'}; font-size:0.8rem">${entryMapping || '(미매핑)'}</td>`;
     html += `<td style="text-align:right">${formatKRW(entry.debit)}</td>`;
     html += `<td style="font-size:0.78rem;color:var(--text-dim);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${note}</td>`;
     html += `</tr>`;
