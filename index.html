@@ -1171,40 +1171,54 @@ function buildSummary() {
 
   let html = `<div style="margin-bottom:12px;font-size:0.85rem;color:var(--text-dim)">📅 집계 기간: <strong style="color:var(--accent)">${monthLabel}</strong></div>`;
   const branches = Object.keys(uploadedFiles).sort();
+  const cfg = activeConfig;
+
   for (const branch of branches) {
     const data = uploadedFiles[branch].data;
-    let revenue = 0, cogs = 0, sga = 0;
-    data.forEach(r => {
-      // 선택된 월만 집계
-      if (r.date instanceof Date && selectedMonths.size > 0) {
-        const m = r.date.getMonth() + 1;
-        if (!selectedMonths.has(m)) return;
-      }
-      const m = accountMap[r.code]?.mapping;
-      if (!m || m === '__제외__' || m === '__영업외__') return;
-      const target = activeConfig.evalTargets.find(t => t.label === m);
-      if (!target) return;
-      if (target.type === 'revenue') revenue += (r.credit - r.debit);
-      else if (target.type === 'cogs') cogs += (r.debit - r.credit);
-      else sga += (r.debit - r.credit);
-    });
-    // 수식 산출 항목 추가 (엑셀과 동일하게)
-    const retirement = Math.round(sga > 0 ? (revenue > 0 ? sga : 0) : 0); // 급여 기반
-    // 급여 항목만 따로 집계
-    let salaryTotal = 0;
-    data.forEach(r => {
-      if (r.date instanceof Date && selectedMonths.size > 0) {
-        if (!selectedMonths.has(r.date.getMonth() + 1)) return;
-      }
-      const mp = accountMap[r.code]?.mapping;
-      if (mp === '급여') salaryTotal += (r.debit - r.credit);
-    });
-    const calcRetirement = Math.round(salaryTotal / 12);     // 퇴직급여 = 급여/12
-    const hasCardFee = !!activeConfig.calcItems[44];
-    const calcCardFee = hasCardFee ? Math.round(revenue * 0.022) : 0; // 카드수수료 = 매출*2.2% (F&B only)
+
+    // 월별로 각각 계산 후 합산 (엑셀 수식과 동일 방식)
+    let revenue = 0, cogs = 0, sga = 0, calcRetirement = 0, calcCardFee = 0;
+
+    for (const monthNum of selMonthsArr) {
+      const monthRows = data.filter(r =>
+        r.date instanceof Date && (r.date.getMonth() + 1) === monthNum
+      );
+
+      let mRevenue = 0, mCogs = 0, mSga = 0;
+      monthRows.forEach(r => {
+        const mp = accountMap[r.code]?.mapping;
+        if (!mp || mp === '__제외__' || mp === '__영업외__') return;
+        const target = cfg.evalTargets.find(t => t.label === mp);
+        if (!target || target.type === 'calc') return;
+        if (target.type === 'revenue') mRevenue += (r.credit - r.debit);
+        else if (target.type === 'cogs') mCogs += (r.debit - r.credit);
+        else mSga += (r.debit - r.credit);
+      });
+
+      // 월별 수식 산출 항목 (엑셀 셀 수식과 동일)
+      // 퇴직급여: 급여 행(row15) / 12 — 엑셀 수식 기준
+      let mSalary = 0;
+      monthRows.forEach(r => {
+        const mp = accountMap[r.code]?.mapping;
+        if (mp === '급여') mSalary += (r.debit - r.credit);
+      });
+      const mRetirement = Math.round(mSalary / 12);
+
+      // 카드수수료: 매출소계 * 2.2% (F&B만)
+      const hasCardFee = !!cfg.calcItems[44];
+      const mCardFee = hasCardFee ? Math.round(mRevenue * 0.022) : 0;
+
+      revenue += mRevenue;
+      cogs += mCogs;
+      sga += mSga;
+      calcRetirement += mRetirement;
+      calcCardFee += mCardFee;
+    }
+
     const totalSga = sga + calcRetirement + calcCardFee;
     const gross = revenue - cogs;
     const op = gross - totalSga;
+    const hasCardFee = !!cfg.calcItems[44];
     const calcDetail = hasCardFee
       ? `(퇴직급여 ${formatKRW(calcRetirement)} + 카드수수료 ${formatKRW(calcCardFee)})`
       : `(퇴직급여 ${formatKRW(calcRetirement)})`;
