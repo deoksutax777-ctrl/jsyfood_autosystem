@@ -1263,7 +1263,7 @@ async function generateExcel() {
     // === 1단계: 지점별 평가 시트 먼저 생성 ===
     for (const branch of branches) {
       const es = wb.addWorksheet(branch);
-      es.properties.tabColor = { argb: 'FFFFC000' };
+      es.properties.tabColor = { argb: 'FFE2BC54' };
       buildEvalSheet(es, branch, jSheetName, cSheetName, year);
       step++;
       fill.style.width = (step / totalSteps * 100) + '%';
@@ -1277,7 +1277,7 @@ async function generateExcel() {
     // === 3단계: 통합 분개장 시트 (전 지점 합산, 분개장 데이터만) ===
     {
       const js = wb.addWorksheet(jSheetName);
-      js.properties.tabColor = { argb: 'FF4472C4' };
+      js.properties.tabColor = { argb: 'FF143C73' };
 
       const jHeaders = ['지점', '전표날짜', '전표번호', '구분', 'Code', '계정과목', '차변', '대변', '거래처', 'Code', '적요', '매핑항목'];
       const jHeaderRow = js.addRow(jHeaders);
@@ -1318,7 +1318,7 @@ async function generateExcel() {
     const hasCardData = cardMerged && branches.some(b => uploadedFiles[b].data.some(r => r._source === 'card'));
     if (hasCardData) {
       const cs = wb.addWorksheet(cSheetName);
-      cs.properties.tabColor = { argb: 'FF70AD47' };
+      cs.properties.tabColor = { argb: 'FF006E32' };
 
       const cHeaders = ['지점', '전표날짜', '전표번호', '구분', 'Code', '계정과목', '차변', '대변', '거래처', 'Code', '적요', '매핑항목'];
       const cHeaderRow = cs.addRow(cHeaders);
@@ -1956,7 +1956,7 @@ function buildEvalSheet(ws, branch, jSheetName, cSheetName, year) {
 
 function buildTotalSheet(wb, branches, year) {
   const ws = wb.addWorksheet('합계');
-  ws.properties.tabColor = { argb: 'FFFF0000' };
+  ws.properties.tabColor = { argb: 'FFCB4427' };
 
   const yy = String(year).slice(2);
   const months = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
