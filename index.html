@@ -1249,12 +1249,21 @@ async function generateExcel() {
     const totalSteps = branches.length * 2 + 1;
     let step = 0;
 
+    // 선택된 월 레이블 (시트명용)
+    const selMonthsArr = [...selectedMonths].sort((a, b) => a - b);
+    const monthSheetLabel = selMonthsArr.length === 1 ? selMonthsArr[0] + '월' :
+      selMonthsArr.length === 12 ? '연간' :
+      selMonthsArr.map(m => m + '월').join('_');
+
+    // 분개장/카드 시트명
+    const jSheetName = '분개장_' + monthSheetLabel;
+    const cSheetName = '카드내역_' + monthSheetLabel;
+
     // === 1단계: 지점별 평가 시트 먼저 생성 ===
     for (const branch of branches) {
       const es = wb.addWorksheet(branch);
       es.properties.tabColor = { argb: 'FFFFC000' };
-      const jSheetName = '분개장_' + branch;
-      buildEvalSheet(es, branch, jSheetName, year);
+      buildEvalSheet(es, branch, jSheetName, cSheetName, year);
       step++;
       fill.style.width = (step / totalSteps * 100) + '%';
     }
@@ -1264,13 +1273,12 @@ async function generateExcel() {
     step++;
     fill.style.width = (step / totalSteps * 100) + '%';
 
-    // === 3단계: 분개장 시트 (맨 뒤) ===
-    for (const branch of branches) {
-      const jSheetName = '분개장_' + branch;
+    // === 3단계: 통합 분개장 시트 (전 지점 합산, 분개장 데이터만) ===
+    {
       const js = wb.addWorksheet(jSheetName);
       js.properties.tabColor = { argb: 'FF4472C4' };
 
-      const jHeaders = ['전표날짜', '전표번호', '구분', 'Code', '계정과목', '차변', '대변', '거래처', 'Code', '적요', '매핑항목', '출처'];
+      const jHeaders = ['지점', '전표날짜', '전표번호', '구분', 'Code', '계정과목', '차변', '대변', '거래처', 'Code', '적요', '매핑항목'];
       const jHeaderRow = js.addRow(jHeaders);
       jHeaderRow.eachCell((cell) => {
         cell.font = { name: '맑은 고딕', size: 10, bold: true, color: { argb: CLR_HEADER_FONT } };
@@ -1279,35 +1287,74 @@ async function generateExcel() {
         cell.alignment = { horizontal: 'center', vertical: 'middle' };
       });
 
-      const data = uploadedFiles[branch].data;
-      data.forEach(r => {
-        const mapping = accountMap[r.code]?.mapping || '';
-        const source = r._source === 'card' ? '카드' : '';
-        const row = js.addRow([
-          r.date, r.num, r.type, r.code, r.account,
-          r.debit || 0, r.credit || 0, r.vendor, r.vendorCode, r.desc, mapping, source
-        ]);
-        row.eachCell((cell, colNumber) => {
-          cell.font = { name: '맑은 고딕', size: 10 };
-          cell.border = thinBorder();
-          if (colNumber === 1) { cell.numFmt = 'YYYY-MM-DD'; }
-          if (colNumber === 6 || colNumber === 7) { cell.numFmt = '#,##0'; }
-          // 카드 소스 행 배경색
-          if (r._source === 'card') {
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F7FF' } };
-          }
+      // 전 지점 분개장 데이터 (카드 제외)
+      for (const branch of branches) {
+        const data = uploadedFiles[branch].data;
+        data.forEach(r => {
+          if (r._source === 'card') return; // 카드는 별도 시트
+          const mapping = accountMap[r.code]?.mapping || '';
+          const row = js.addRow([
+            branch, r.date, r.num, r.type, r.code, r.account,
+            r.debit || 0, r.credit || 0, r.vendor, r.vendorCode, r.desc, mapping
+          ]);
+          row.eachCell((cell, colNumber) => {
+            cell.font = { name: '맑은 고딕', size: 10 };
+            cell.border = thinBorder();
+            if (colNumber === 2) { cell.numFmt = 'YYYY-MM-DD'; }
+            if (colNumber === 7 || colNumber === 8) { cell.numFmt = '#,##0'; }
+          });
         });
-      });
+      }
 
       js.columns = [
-        { width: 12 }, { width: 10 }, { width: 6 }, { width: 8 }, { width: 24 },
-        { width: 14 }, { width: 14 }, { width: 14 }, { width: 8 }, { width: 24 }, { width: 14 }, { width: 8 }
+        { width: 10 }, { width: 12 }, { width: 10 }, { width: 6 }, { width: 8 }, { width: 24 },
+        { width: 14 }, { width: 14 }, { width: 14 }, { width: 8 }, { width: 24 }, { width: 14 }
       ];
       js.views = [{ showGridLines: false, zoomScale: 75 }];
-
-      step++;
-      fill.style.width = '100%';
     }
+
+    // === 4단계: 카드내역 시트 (카드 데이터만, 전 지점) ===
+    const hasCardData = cardMerged && branches.some(b => uploadedFiles[b].data.some(r => r._source === 'card'));
+    if (hasCardData) {
+      const cs = wb.addWorksheet(cSheetName);
+      cs.properties.tabColor = { argb: 'FF70AD47' };
+
+      const cHeaders = ['지점', '전표날짜', '전표번호', '구분', 'Code', '계정과목', '차변', '대변', '거래처', 'Code', '적요', '매핑항목'];
+      const cHeaderRow = cs.addRow(cHeaders);
+      cHeaderRow.eachCell((cell) => {
+        cell.font = { name: '맑은 고딕', size: 10, bold: true, color: { argb: CLR_HEADER_FONT } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2E7D32' } };
+        cell.border = thinBorder();
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      });
+
+      for (const branch of branches) {
+        const data = uploadedFiles[branch].data;
+        data.forEach(r => {
+          if (r._source !== 'card') return;
+          const mapping = accountMap[r.code]?.mapping || '';
+          const row = cs.addRow([
+            branch, r.date, r.num, r.type, r.code, r.account,
+            r.debit || 0, r.credit || 0, r.vendor, r.vendorCode, r.desc, mapping
+          ]);
+          row.eachCell((cell, colNumber) => {
+            cell.font = { name: '맑은 고딕', size: 10 };
+            cell.border = thinBorder();
+            if (colNumber === 2) { cell.numFmt = 'YYYY-MM-DD'; }
+            if (colNumber === 7 || colNumber === 8) { cell.numFmt = '#,##0'; }
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F7FF' } };
+          });
+        });
+      }
+
+      cs.columns = [
+        { width: 10 }, { width: 12 }, { width: 10 }, { width: 6 }, { width: 8 }, { width: 24 },
+        { width: 14 }, { width: 14 }, { width: 14 }, { width: 8 }, { width: 24 }, { width: 14 }
+      ];
+      cs.views = [{ showGridLines: false, zoomScale: 75 }];
+    }
+
+    fill.style.width = '100%';
 
     const buffer = await wb.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -1376,32 +1423,43 @@ function styleCell(cell, opts) {
   if (opts.align) cell.alignment = opts.align;
 }
 
-function sumifs(jSheet, valCol, label, year, month) {
+// 새 컬럼 구조: A=지점, B=날짜, G=차변, H=대변, L=매핑항목
+// branch 조건 추가, 카드시트도 합산
+
+function revenueSumifs(jSheet, label, year, month, branch, cSheet) {
+  // credit - debit (매출: 대변 - 차변)
   const nextMonth = month === 12 ? 1 : month + 1;
   const nextYear = month === 12 ? year + 1 : year;
-  return {
-    formula: `SUMIFS('${jSheet}'!$${valCol}:$${valCol},'${jSheet}'!$K:$K,"${label}",'${jSheet}'!$A:$A,">="&DATE(${year},${month},1),'${jSheet}'!$A:$A,"<"&DATE(${nextYear},${nextMonth},1))`
-  };
+  const brCond = `'${jSheet}'!$A:$A,"${branch}"`;
+  const mapCond = `'${jSheet}'!$L:$L,"${label}"`;
+  const dateCond = `'${jSheet}'!$B:$B,">="&DATE(${year},${month},1),'${jSheet}'!$B:$B,"<"&DATE(${nextYear},${nextMonth},1)`;
+  let formula = `SUMIFS('${jSheet}'!$H:$H,${brCond},${mapCond},${dateCond})-SUMIFS('${jSheet}'!$G:$G,${brCond},${mapCond},${dateCond})`;
+  // 카드시트도 합산
+  if (cSheet) {
+    const cBrCond = `'${cSheet}'!$A:$A,"${branch}"`;
+    const cMapCond = `'${cSheet}'!$L:$L,"${label}"`;
+    const cDateCond = `'${cSheet}'!$B:$B,">="&DATE(${year},${month},1),'${cSheet}'!$B:$B,"<"&DATE(${nextYear},${nextMonth},1)`;
+    formula += `+SUMIFS('${cSheet}'!$H:$H,${cBrCond},${cMapCond},${cDateCond})-SUMIFS('${cSheet}'!$G:$G,${cBrCond},${cMapCond},${cDateCond})`;
+  }
+  return { formula };
 }
 
-function revenueSumifs(jSheet, label, year, month) {
-  // credit - debit
+function expenseSumifs(jSheet, label, year, month, branch, cSheet) {
+  // debit - credit (비용: 차변 - 대변)
   const nextMonth = month === 12 ? 1 : month + 1;
   const nextYear = month === 12 ? year + 1 : year;
-  const dateCond = `'${jSheet}'!$A:$A,">="&DATE(${year},${month},1),'${jSheet}'!$A:$A,"<"&DATE(${nextYear},${nextMonth},1)`;
-  return {
-    formula: `SUMIFS('${jSheet}'!$G:$G,'${jSheet}'!$K:$K,"${label}",${dateCond})-SUMIFS('${jSheet}'!$F:$F,'${jSheet}'!$K:$K,"${label}",${dateCond})`
-  };
-}
-
-function expenseSumifs(jSheet, label, year, month) {
-  // debit - credit
-  const nextMonth = month === 12 ? 1 : month + 1;
-  const nextYear = month === 12 ? year + 1 : year;
-  const dateCond = `'${jSheet}'!$A:$A,">="&DATE(${year},${month},1),'${jSheet}'!$A:$A,"<"&DATE(${nextYear},${nextMonth},1)`;
-  return {
-    formula: `SUMIFS('${jSheet}'!$F:$F,'${jSheet}'!$K:$K,"${label}",${dateCond})-SUMIFS('${jSheet}'!$G:$G,'${jSheet}'!$K:$K,"${label}",${dateCond})`
-  };
+  const brCond = `'${jSheet}'!$A:$A,"${branch}"`;
+  const mapCond = `'${jSheet}'!$L:$L,"${label}"`;
+  const dateCond = `'${jSheet}'!$B:$B,">="&DATE(${year},${month},1),'${jSheet}'!$B:$B,"<"&DATE(${nextYear},${nextMonth},1)`;
+  let formula = `SUMIFS('${jSheet}'!$G:$G,${brCond},${mapCond},${dateCond})-SUMIFS('${jSheet}'!$H:$H,${brCond},${mapCond},${dateCond})`;
+  // 카드시트도 합산
+  if (cSheet) {
+    const cBrCond = `'${cSheet}'!$A:$A,"${branch}"`;
+    const cMapCond = `'${cSheet}'!$L:$L,"${label}"`;
+    const cDateCond = `'${cSheet}'!$B:$B,">="&DATE(${year},${month},1),'${cSheet}'!$B:$B,"<"&DATE(${nextYear},${nextMonth},1)`;
+    formula += `+SUMIFS('${cSheet}'!$G:$G,${cBrCond},${cMapCond},${cDateCond})-SUMIFS('${cSheet}'!$H:$H,${cBrCond},${cMapCond},${cDateCond})`;
+  }
+  return { formula };
 }
 
 function colLetter(idx) {
@@ -1426,7 +1484,8 @@ function findJanHardcode(branch) {
   return null;
 }
 
-function buildEvalSheet(ws, branch, jSheetName, year) {
+function buildEvalSheet(ws, branch, jSheetName, cSheetName, year) {
+  const hasCard = cardMerged;
   const cfg = activeConfig;
 
   // Set column widths
@@ -1472,6 +1531,7 @@ function buildEvalSheet(ws, branch, jSheetName, year) {
   }
 
   // Helper to set a data row with SUMIFS
+  const cardSheet = hasCard ? cSheetName : null;
   function setDataRow(rowNum, bLabel, cLabel, targetLabel, type) {
     const row = ws.getRow(rowNum);
     if (bLabel) { row.getCell(2).value = bLabel; row.getCell(2).font = { name: '맑은 고딕', size: 10, bold: true }; }
@@ -1480,9 +1540,9 @@ function buildEvalSheet(ws, branch, jSheetName, year) {
       const col = 3 + m;
       if (targetLabel && selectedMonths.has(m)) {
         if (type === 'revenue') {
-          row.getCell(col).value = revenueSumifs(jSheetName, targetLabel, year, m);
+          row.getCell(col).value = revenueSumifs(jSheetName, targetLabel, year, m, branch, cardSheet);
         } else {
-          row.getCell(col).value = expenseSumifs(jSheetName, targetLabel, year, m);
+          row.getCell(col).value = expenseSumifs(jSheetName, targetLabel, year, m, branch, cardSheet);
         }
       }
       styleCell(row.getCell(col), { numFmt: FMT_NUM });
