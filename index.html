@@ -2721,7 +2721,7 @@ function renderCardDetailView(visibleIdxs) {
   html += `<th>계정코드</th>`;
   html += `<th class="sortable" onclick="toggleCardSort('mapping')">→ 손익 매핑${si('mapping')}</th>`;
   html += `<th class="sortable" style="text-align:right" onclick="toggleCardSort('amount')">사용액${si('amount')}</th>`;
-  html += `<th>비고</th></tr></thead><tbody>';
+  html += `<th>비고</th></tr></thead><tbody>`;
 
   visibleIdxs.forEach(idx => {
     const entry = cardEntries[idx];
