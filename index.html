@@ -1209,7 +1209,7 @@ async function generateExcel() {
       const jHeaderRow = js.addRow(jHeaders);
       jHeaderRow.eachCell((cell) => {
         cell.font = { name: '맑은 고딕', size: 10, bold: true, color: { argb: CLR_HEADER_FONT } };
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: CLR_HEADER } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: CLR_JOURNAL } };
         cell.border = thinBorder();
         cell.alignment = { horizontal: 'center', vertical: 'middle' };
       });
@@ -1277,14 +1277,15 @@ function borderRTB() { return { right:{style:'thin'}, top:{style:'thin'}, bottom
 
 const FMT_NUM = '#,##0;[Red]\\-#,##0;"-"';
 const FMT_PCT = '#,##0.0%;[Red]\\-#,##0.0%;"-"';
-// 색상 테마: 파랑, 초록, 빨강, 노랑, 흰색
-const CLR_HEADER = 'FF0066CC';     // 쨍한 파랑 (헤더)
+// 색상 테마
+const CLR_HEADER = 'FF122437';     // 진한 남색 R18,G36,B55 (헤더)
 const CLR_HEADER_FONT = 'FFFFFFFF'; // 흰색 글자
-const CLR_SUBTOTAL = 'FF00B050';   // 쨍한 초록 (소계)
+const CLR_SUBTOTAL = 'FF006E32';   // 초록 R0,G110,B50 (소계)
 const CLR_SUBTOTAL_FONT = 'FFFFFFFF'; // 흰색 글자
-const CLR_REVENUE = 'FFFF3333';    // 쨍한 빨강 (매출이익)
+const CLR_REVENUE = 'FFCB4427';    // 빨강 R203,G68,B39 (매출이익)
 const CLR_REVENUE_FONT = 'FFFFFFFF'; // 흰색 글자
-const CLR_HIGHLIGHT = 'FFFFD600';  // 쨍한 노랑 (영업이익)
+const CLR_HIGHLIGHT = 'FFE2BC54';  // 금색 R226,G188,B84 (영업이익)
+const CLR_JOURNAL = 'FF143C73';    // 파랑 R20,G60,B115 (분개장 헤더)
 
 function fillCell(cell, argb) {
   cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb } };
