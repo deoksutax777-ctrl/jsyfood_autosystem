@@ -235,20 +235,17 @@ tr.card-new td { }
   <!-- STEP 4: Card Data -->
   <div class="panel" id="panel4">
     <h2 style="font-size:1rem;margin-bottom:16px">💳 카드내역 추가 반영</h2>
-    <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:16px">분개장 기반 손익현황을 확인한 후, 카드거래를 추가로 반영합니다.<br>이미 분개장에 있는 거래는 자동으로 중복 감지됩니다.</p>
-
-    <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
-      <label style="font-size:0.85rem;font-weight:600">대상 지점:</label>
-      <select id="cardBranchSelect" style="padding:6px 10px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:0.85rem;font-family:inherit"></select>
-    </div>
+    <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:16px">분개장 기반 손익현황을 확인한 후, 카드거래를 추가로 반영합니다.<br>카드내역의 <strong style="color:var(--text)">사용자/부서</strong> 컬럼으로 지점을 자동 매칭합니다.</p>
 
     <div class="upload-zone" id="cardZone">
       <div class="icon">💳</div>
       <p><strong>카드내역 파일 업로드</strong></p>
       <p>카드내역 엑셀 파일을 드래그하거나 클릭하여 업로드하세요</p>
-      <p style="margin-top:8px;font-size:0.78rem;color:var(--text-dim)">컬럼: 사용일, 사용처, 사업자번호, 비용항목, 사업자유형, 사용액</p>
+      <p style="margin-top:8px;font-size:0.78rem;color:var(--text-dim)">컬럼: 사용일, 사용처, 사업자번호, 비용항목, 사용액, <strong>사용자(지점)</strong></p>
     </div>
     <input type="file" id="cardInput" accept=".xlsx,.xls,.csv" style="display:none">
+
+    <div id="cardBranchMappingArea"></div>
 
     <div id="cardStats" class="card-stats" style="display:none"></div>
     <div class="card-preview-wrap" id="cardPreviewWrap" style="display:none">
@@ -2101,32 +2098,27 @@ const CARD_ACCOUNT_MAP = {
 
 // -- Card state --
 let cardRawData = [];
-let cardEntries = [];     // converted to journal format
-let cardDupResults = [];  // { isDup: true/false/'maybe', ... }
-let cardSelectedBranch = '';
-let cardMerged = false;   // 이미 병합했는지
+let cardEntries = [];       // { ...journalRow, _branch, _expenseItem, ... }
+let cardDupResults = [];    // per-entry duplicate check results
+let cardBranchMap = {};     // cardUser -> journalBranch mapping
+let cardUserNames = [];     // unique 사용자 values from card data
+let cardMerged = false;
 let cardMergedCount = 0;
-let cardMergedBranch = '';
+let cardMergedBranch = '';  // summary text
 
 // -- Init card step --
 function initCardStep() {
-  const branches = Object.keys(uploadedFiles).sort();
-  const sel = document.getElementById('cardBranchSelect');
-  sel.innerHTML = branches.map(b => `<option value="${b}">${b}</option>`).join('');
-  cardSelectedBranch = branches[0] || '';
-  sel.addEventListener('change', function() {
-    cardSelectedBranch = this.value;
-    if (cardEntries.length > 0) runDuplicateDetection();
-  });
-
   // Reset card state
   cardRawData = [];
   cardEntries = [];
   cardDupResults = [];
+  cardBranchMap = {};
+  cardUserNames = [];
   cardMerged = false;
   document.getElementById('cardStats').style.display = 'none';
   document.getElementById('cardPreviewWrap').style.display = 'none';
   document.getElementById('btnMergeCard').style.display = 'none';
+  document.getElementById('cardBranchMappingArea').innerHTML = '';
 
   // Wire up upload
   const cardZone = document.getElementById('cardZone');
@@ -2165,7 +2157,8 @@ function handleCardFile(file) {
         return;
       }
 
-      runDuplicateDetection();
+      // 사용자(지점) 자동 감지 및 매핑
+      buildCardBranchMapping();
     } catch (err) {
       alert('카드파일 파싱 오류: ' + err.message);
       console.error(err);
@@ -2176,7 +2169,6 @@ function handleCardFile(file) {
 
 // -- Convert single card row to journal format --
 function convertCardRow(r, idx) {
-  // Parse date
   let dt = null;
   const rawDate = r['사용일'] || r['거래일자'] || r['이용일자'] || r['승인일자'];
   if (!rawDate) return null;
@@ -2192,22 +2184,17 @@ function convertCardRow(r, idx) {
   }
   if (!dt || isNaN(dt.getTime())) return null;
 
-  // Parse amount
   const amount = parseNum(r['사용액'] || r['이용금액'] || r['승인금액'] || r['금액'] || 0);
   if (amount === 0) return null;
 
-  // Vendor
   const vendor = String(r['사용처'] || r['가맹점명'] || r['이용가맹점'] || '').trim();
-
-  // Expense item
   const expenseItem = String(r['비용항목'] || r['항목'] || '').trim();
+  const cardUser = String(r['사용자'] || r['부서'] || '').trim();
 
-  // Map to account code
   const mapped = CARD_ACCOUNT_MAP[expenseItem];
-  const code = mapped ? mapped.code : '83100'; // default: 지급수수료
+  const code = mapped ? mapped.code : '83100';
   const account = mapped ? mapped.name : '지급수수료';
 
-  // Business number
   let bizNo = String(r['사업자번호'] || '').replace(/[^\d]/g, '');
   if (bizNo.length === 10) bizNo = bizNo.slice(0,3) + '-' + bizNo.slice(3,5) + '-' + bizNo.slice(5);
 
@@ -2225,30 +2212,132 @@ function convertCardRow(r, idx) {
     _source: 'card',
     _expenseItem: expenseItem,
     _originalAmount: amount,
+    _cardUser: cardUser,  // 카드 사용자(지점) 원본값
   };
 }
 
-// -- Duplicate detection --
-function runDuplicateDetection() {
-  if (!cardSelectedBranch || !uploadedFiles[cardSelectedBranch]) return;
-  const journalData = uploadedFiles[cardSelectedBranch].data;
+// -- 사용자→지점 매핑 구축 --
+function buildCardBranchMapping() {
+  const branches = Object.keys(uploadedFiles).sort();
 
+  // 카드 데이터에서 고유 사용자 추출
+  const userSet = new Set();
+  cardEntries.forEach(e => { if (e._cardUser) userSet.add(e._cardUser); });
+  cardUserNames = [...userSet].sort();
+
+  // 사용자가 없으면 (사용자 컬럼 없음) → 단일 지점 선택 모드
+  if (cardUserNames.length === 0) {
+    cardUserNames = ['(전체)'];
+    cardEntries.forEach(e => { e._cardUser = '(전체)'; });
+  }
+
+  // 자동 매핑: 사용자명 ↔ 지점명 포함관계로 매칭
+  cardBranchMap = {};
+  cardUserNames.forEach(user => {
+    const normalUser = user.toLowerCase().replace(/\s/g, '');
+    let bestMatch = null;
+    for (const branch of branches) {
+      const normalBranch = branch.toLowerCase().replace(/\s/g, '');
+      if (normalUser.includes(normalBranch) || normalBranch.includes(normalUser)) {
+        bestMatch = branch;
+        break;
+      }
+    }
+    cardBranchMap[user] = bestMatch || '';
+  });
+
+  renderCardBranchMapping();
+}
+
+// -- 사용자→지점 매핑 UI 렌더링 --
+function renderCardBranchMapping() {
+  const branches = Object.keys(uploadedFiles).sort();
+  const area = document.getElementById('cardBranchMappingArea');
+
+  // 사용자별 건수 집계
+  const userCounts = {};
+  cardEntries.forEach(e => {
+    userCounts[e._cardUser] = (userCounts[e._cardUser] || 0) + 1;
+  });
+
+  const branchOptions = branches.map(b => `<option value="${b}">${b}</option>`).join('') +
+    `<option value="">(제외)</option>`;
+
+  let html = `<div style="margin:16px 0;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:8px">`;
+  html += `<p style="font-size:0.9rem;font-weight:600;margin-bottom:12px">📋 카드 사용자 → 지점 매핑</p>`;
+  html += `<p style="font-size:0.8rem;color:var(--text-dim);margin-bottom:12px">카드내역의 사용자(부서)를 해당 지점에 매핑하세요. 자동 매칭된 항목을 확인해주세요.</p>`;
+  html += `<table style="width:100%;font-size:0.85rem"><thead><tr><th>카드 사용자</th><th>건수</th><th>→ 지점</th><th>상태</th></tr></thead><tbody>`;
+
+  cardUserNames.forEach(user => {
+    const count = userCounts[user] || 0;
+    const matched = cardBranchMap[user];
+    const statusTag = matched
+      ? `<span class="dup-tag new">매칭</span>`
+      : `<span class="dup-tag maybe">미매칭</span>`;
+
+    html += `<tr>`;
+    html += `<td style="font-weight:500">${user}</td>`;
+    html += `<td>${count}건</td>`;
+    html += `<td><select class="card-branch-sel" data-user="${user}" onchange="onCardBranchChange(this)" style="padding:4px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:0.82rem;font-family:inherit">`;
+    html += `<option value="">(선택)</option>`;
+    branches.forEach(b => {
+      html += `<option value="${b}" ${matched === b ? 'selected' : ''}>${b}</option>`;
+    });
+    html += `</select></td>`;
+    html += `<td>${statusTag}</td>`;
+    html += `</tr>`;
+  });
+
+  html += `</tbody></table>`;
+  html += `<div class="btn-group" style="margin-top:12px"><button class="btn btn-primary" onclick="applyCardBranchMapping()">매핑 적용 & 중복검출 →</button></div>`;
+  html += `</div>`;
+
+  area.innerHTML = html;
+}
+
+function onCardBranchChange(sel) {
+  cardBranchMap[sel.dataset.user] = sel.value;
+  renderCardBranchMapping();
+}
+
+// -- 매핑 적용 후 중복 검출 --
+function applyCardBranchMapping() {
+  // 매핑 안 된 사용자가 있는지 체크
+  const unmapped = cardUserNames.filter(u => !cardBranchMap[u]);
+  if (unmapped.length > 0) {
+    const skip = confirm(`매핑되지 않은 사용자가 ${unmapped.length}명 있습니다: ${unmapped.join(', ')}\n\n매핑되지 않은 항목은 제외하고 계속하시겠습니까?`);
+    if (!skip) return;
+  }
+
+  // 각 카드 엔트리에 대상 지점(_branch) 설정
+  cardEntries.forEach(e => {
+    e._branch = cardBranchMap[e._cardUser] || '';
+  });
+
+  // 지점별 중복 검출
+  runDuplicateDetectionMultiBranch();
+}
+
+function runDuplicateDetectionMultiBranch() {
   cardDupResults = cardEntries.map(card => {
+    if (!card._branch || !uploadedFiles[card._branch]) {
+      return { isDup: 'excluded' }; // 매핑 안 된 항목
+    }
+    const journalData = uploadedFiles[card._branch].data;
     return checkDuplicate(card, journalData);
   });
 
   renderCardPreview();
 }
 
+// -- Utility functions --
 function normalizeStr(s) {
   return (s || '').replace(/[\s\(\)（）주식회사\(주\)㈜]/g, '').toLowerCase();
 }
 
 function calcSimilarity(a, b) {
   if (!a || !b) return 0;
-  // Containment check
   if (a.includes(b) || b.includes(a)) return 1.0;
-  // Bigram Jaccard
   const bigrams = (s) => {
     const bg = new Set();
     for (let i = 0; i < s.length - 1; i++) bg.add(s.substring(i, i+2));
@@ -2262,7 +2351,6 @@ function calcSimilarity(a, b) {
 }
 
 function checkDuplicate(cardEntry, journalEntries) {
-  // Step 1: date + amount match
   const candidates = journalEntries.filter(j => {
     if (!j.date || !cardEntry.date) return false;
     const sameDate = j.date.getFullYear() === cardEntry.date.getFullYear() &&
@@ -2276,7 +2364,6 @@ function checkDuplicate(cardEntry, journalEntries) {
 
   if (candidates.length === 0) return { isDup: false };
 
-  // Step 2: vendor/desc similarity
   const cardVendor = normalizeStr(cardEntry.vendor);
   for (const c of candidates) {
     const jVendor = normalizeStr(c.vendor);
@@ -2288,19 +2375,19 @@ function checkDuplicate(cardEntry, journalEntries) {
     }
   }
 
-  // Date+amount match but vendor mismatch
   return { isDup: 'maybe', candidates: candidates.map(c => c.vendor).join(', ') };
 }
 
-// -- Render card preview --
+// -- Render card preview (multi-branch) --
 function renderCardPreview() {
   const stats = document.getElementById('cardStats');
   const wrap = document.getElementById('cardPreviewWrap');
   const table = document.getElementById('cardPreviewTable');
 
-  let dupCount = 0, maybeCount = 0, newCount = 0;
+  let dupCount = 0, maybeCount = 0, newCount = 0, excludedCount = 0;
   cardDupResults.forEach(r => {
-    if (r.isDup === true) dupCount++;
+    if (r.isDup === 'excluded') excludedCount++;
+    else if (r.isDup === true) dupCount++;
     else if (r.isDup === 'maybe') maybeCount++;
     else newCount++;
   });
@@ -2310,12 +2397,35 @@ function renderCardPreview() {
     `<div class="stat">전체 <span class="val">${cardEntries.length}</span>건</div>` +
     `<div class="stat">중복 <span class="val red">${dupCount}</span>건</div>` +
     `<div class="stat">확인필요 <span class="val gold">${maybeCount}</span>건</div>` +
-    `<div class="stat">신규추가 <span class="val green">${newCount}</span>건</div>`;
+    `<div class="stat">신규추가 <span class="val green">${newCount}</span>건</div>` +
+    (excludedCount > 0 ? `<div class="stat">제외 <span class="val dim">${excludedCount}</span>건</div>` : '');
 
-  let html = '<thead><tr><th>상태</th><th>포함</th><th>사용일</th><th>사용처</th><th>비용항목</th><th>계정코드</th><th style="text-align:right">사용액</th><th>비고</th></tr></thead><tbody>';
+  // 지점별 그룹핑
+  const branches = Object.keys(uploadedFiles).sort();
+  let html = '<thead><tr><th>상태</th><th>포함</th><th>지점</th><th>사용일</th><th>사용처</th><th>비용항목</th><th>계정코드</th><th style="text-align:right">사용액</th><th>비고</th></tr></thead><tbody>';
 
-  cardEntries.forEach((entry, idx) => {
+  // 지점별 정렬
+  const sortedIdxs = cardEntries.map((_, i) => i)
+    .filter(i => cardDupResults[i].isDup !== 'excluded')
+    .sort((a, b) => {
+      const ba = cardEntries[a]._branch || 'ㅎ';
+      const bb = cardEntries[b]._branch || 'ㅎ';
+      return ba.localeCompare(bb, 'ko');
+    });
+
+  let lastBranch = null;
+  sortedIdxs.forEach(idx => {
+    const entry = cardEntries[idx];
     const dup = cardDupResults[idx];
+    const branch = entry._branch;
+
+    // 지점 구분선
+    if (branch !== lastBranch) {
+      const branchCount = sortedIdxs.filter(i => cardEntries[i]._branch === branch).length;
+      html += `<tr><td colspan="9" style="background:var(--surface2);padding:8px 12px;font-weight:600;font-size:0.85rem;color:var(--accent)">📍 ${branch} (${branchCount}건)</td></tr>`;
+      lastBranch = branch;
+    }
+
     let cls, tagCls, tagText, note = '';
     let checked;
 
@@ -2339,6 +2449,7 @@ function renderCardPreview() {
     html += `<tr class="${cls}">`;
     html += `<td><span class="dup-tag ${tagCls}">${tagText}</span></td>`;
     html += `<td><input type="checkbox" class="card-check" data-idx="${idx}" ${checked ? 'checked' : ''} onchange="updateCardMergeBtn()"></td>`;
+    html += `<td style="font-size:0.8rem">${branch}</td>`;
     html += `<td>${dateStr}</td>`;
     html += `<td>${entry.vendor}</td>`;
     html += `<td>${entry._expenseItem}</td>`;
@@ -2359,10 +2470,10 @@ function updateCardMergeBtn() {
   const checks = document.querySelectorAll('.card-check:checked');
   const btn = document.getElementById('btnMergeCard');
   btn.style.display = checks.length > 0 ? 'inline-flex' : 'none';
-  btn.textContent = `💳 카드내역 ${checks.length}건 병합 후 다음 →`;
+  btn.textContent = `💳 카드내역 ${checks.length}건 병합 → 계정 재분류`;
 }
 
-// -- Merge card entries --
+// -- Merge card entries (multi-branch) --
 function mergeCardEntries() {
   if (cardMerged) {
     alert('이미 병합되었습니다. 다시 병합하려면 Step 1로 돌아가주세요.');
@@ -2376,24 +2487,25 @@ function mergeCardEntries() {
     return;
   }
 
-  const branch = cardSelectedBranch;
-  if (!uploadedFiles[branch]) {
-    alert('대상 지점을 선택하세요.');
-    return;
-  }
-
-  // Append selected card entries to journal data
-  let addedCount = 0;
+  // 지점별 병합
+  const branchCounts = {};
+  let totalAdded = 0;
   selectedIdxs.forEach(idx => {
-    const entry = { ...cardEntries[idx] };
-    uploadedFiles[branch].data.push(entry);
-    addedCount++;
+    const entry = cardEntries[idx];
+    const branch = entry._branch;
+    if (!branch || !uploadedFiles[branch]) return;
+    const newEntry = { ...entry };
+    delete newEntry._branch;
+    delete newEntry._cardUser;
+    uploadedFiles[branch].data.push(newEntry);
+    branchCounts[branch] = (branchCounts[branch] || 0) + 1;
+    totalAdded++;
   });
 
   cardMerged = true;
-  cardMergedCount = addedCount;
-  cardMergedBranch = branch;
-  console.log(`✅ 카드내역 ${addedCount}건을 ${branch} 분개장에 병합 완료`);
+  cardMergedCount = totalAdded;
+  cardMergedBranch = Object.entries(branchCounts).map(([b, c]) => `${b}(${c}건)`).join(', ');
+  console.log(`✅ 카드내역 병합 완료: ${cardMergedBranch}`);
 
   // 재매핑 후 Step 2로 이동
   buildAccountMap();
