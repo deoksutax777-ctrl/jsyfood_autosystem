@@ -145,9 +145,9 @@ tr.card-new td { }
 
   <div class="steps" id="stepsBar" style="display:none">
     <div class="step-indicator active" id="si1"><span class="num">1</span>분개장 업로드</div>
-    <div class="step-indicator" id="si15"><span class="num">1.5</span>카드내역 (선택)</div>
     <div class="step-indicator" id="si2"><span class="num">2</span>계정 분류</div>
     <div class="step-indicator" id="si3"><span class="num">3</span>엑셀 생성</div>
+    <div class="step-indicator" id="si4"><span class="num">4</span>카드 반영</div>
   </div>
 
   <!-- STEP 0: Company Selection -->
@@ -207,10 +207,35 @@ tr.card-new td { }
     </div>
   </div>
 
-  <!-- STEP 1.5: Card Data -->
-  <div class="panel" id="panel15">
-    <h2 style="font-size:1rem;margin-bottom:16px">💳 카드내역 추가 반영 <span style="font-size:0.8rem;color:var(--text-dim);font-weight:400">(선택사항)</span></h2>
-    <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:16px">분개장에 반영되지 않은 카드거래를 추가합니다. 이미 분개장에 있는 거래는 자동으로 중복 감지됩니다.</p>
+  <!-- STEP 2 -->
+  <div class="panel" id="panel2">
+    <div class="stats-bar" id="statsBar"></div>
+    <div class="table-wrap" id="mappingTableWrap"></div>
+    <div id="warnBox"></div>
+    <div class="btn-group">
+      <button class="btn btn-secondary" id="btnBackTo1">← 이전</button>
+      <button class="btn btn-gold" id="btnSaveMapping">💾 매핑 저장 JSON</button>
+      <button class="btn btn-primary" id="btnToStep3" disabled>다음: 엑셀 생성 →</button>
+    </div>
+  </div>
+
+  <!-- STEP 3 -->
+  <div class="panel" id="panel3">
+    <div class="summary-cards" id="summaryCards"></div>
+    <div class="progress-bar" id="progressBar"><div class="fill" id="progressFill"></div></div>
+    <div id="cardMergedNotice" style="display:none;margin-top:12px;padding:12px 16px;background:#064e3b;border:1px solid var(--green);border-radius:8px;font-size:0.85rem;color:var(--green)"></div>
+    <div class="btn-group">
+      <button class="btn btn-secondary" id="btnBackTo2">← 이전</button>
+      <button class="btn btn-success" id="btnGenerate">📥 엑셀 생성 및 다운로드</button>
+      <button class="btn btn-secondary" id="btnSaveData" style="background:var(--gold);color:#111;border:none">💾 데이터 저장 (JSON)</button>
+      <button class="btn btn-primary" id="btnGoCard" onclick="initCardStep(); goStep(4);">💳 카드내역 추가 반영 →</button>
+    </div>
+  </div>
+
+  <!-- STEP 4: Card Data -->
+  <div class="panel" id="panel4">
+    <h2 style="font-size:1rem;margin-bottom:16px">💳 카드내역 추가 반영</h2>
+    <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:16px">분개장 기반 손익현황을 확인한 후, 카드거래를 추가로 반영합니다.<br>이미 분개장에 있는 거래는 자동으로 중복 감지됩니다.</p>
 
     <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
       <label style="font-size:0.85rem;font-weight:600">대상 지점:</label>
@@ -231,32 +256,8 @@ tr.card-new td { }
     </div>
 
     <div class="btn-group">
-      <button class="btn btn-secondary" onclick="goStep(1)">← 이전</button>
-      <button class="btn btn-secondary" id="btnSkipCard" onclick="skipCardStep()">건너뛰기 →</button>
-      <button class="btn btn-primary" id="btnMergeCard" style="display:none" onclick="mergeCardEntries()">💳 카드내역 병합 후 다음 →</button>
-    </div>
-  </div>
-
-  <!-- STEP 2 -->
-  <div class="panel" id="panel2">
-    <div class="stats-bar" id="statsBar"></div>
-    <div class="table-wrap" id="mappingTableWrap"></div>
-    <div id="warnBox"></div>
-    <div class="btn-group">
-      <button class="btn btn-secondary" id="btnBackTo1">← 이전</button>
-      <button class="btn btn-gold" id="btnSaveMapping">💾 매핑 저장 JSON</button>
-      <button class="btn btn-primary" id="btnToStep3" disabled>다음: 엑셀 생성 →</button>
-    </div>
-  </div>
-
-  <!-- STEP 3 -->
-  <div class="panel" id="panel3">
-    <div class="summary-cards" id="summaryCards"></div>
-    <div class="progress-bar" id="progressBar"><div class="fill" id="progressFill"></div></div>
-    <div class="btn-group">
-      <button class="btn btn-secondary" id="btnBackTo2">← 이전</button>
-      <button class="btn btn-success" id="btnGenerate">📥 엑셀 생성 및 다운로드</button>
-      <button class="btn btn-secondary" id="btnSaveData" style="background:var(--gold);color:#111;border:none">💾 데이터 저장 (JSON)</button>
+      <button class="btn btn-secondary" onclick="goStep(3)">← 이전 (손익현황)</button>
+      <button class="btn btn-primary" id="btnMergeCard" style="display:none" onclick="mergeCardEntries()">💳 카드내역 병합 → 계정 재분류</button>
     </div>
   </div>
 </div>
@@ -895,6 +896,9 @@ function selectCompany(companyKey) {
   savedDataJson = null;
   selectedMonths = new Set();
   availableMonths = new Set();
+  cardMerged = false;
+  cardMergedCount = 0;
+  cardMergedBranch = '';
   document.getElementById('fileList').innerHTML = '';
   document.getElementById('mappingStatus').innerHTML = '';
   document.getElementById('dataJsonStatus').innerHTML = '';
@@ -907,8 +911,6 @@ function selectCompany(companyKey) {
 // ============================================================
 // STEP NAVIGATION
 // ============================================================
-// Step order: 0, 1, 15, 2, 3
-const STEP_ORDER = [0, 1, 15, 2, 3];
 function goStep(n) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   if (n === 0) {
@@ -919,9 +921,9 @@ function goStep(n) {
     return;
   }
   document.getElementById('panel' + n).classList.add('active');
-  // Step indicators: si1, si15, si2, si3
-  const siIds = ['si1', 'si15', 'si2', 'si3'];
-  const siSteps = [1, 15, 2, 3];
+  // Step indicators: si1, si2, si3, si4
+  const siIds = ['si1', 'si2', 'si3', 'si4'];
+  const siSteps = [1, 2, 3, 4];
   const stepIdx = siSteps.indexOf(n);
   siIds.forEach((id, i) => {
     const el = document.getElementById(id);
@@ -929,9 +931,13 @@ function goStep(n) {
     if (i === stepIdx) el.classList.add('active');
     else if (i < stepIdx) el.classList.add('done');
   });
+  // 카드 병합 후에는 "카드내역 추가 반영" 버튼 숨기기
+  if (n === 3 && cardMerged) {
+    document.getElementById('btnGoCard').style.display = 'none';
+  }
 }
 
-document.getElementById('btnToStep2').addEventListener('click', () => { initCardStep(); goStep(15); });
+document.getElementById('btnToStep2').addEventListener('click', () => { buildAccountMap(); goStep(2); });
 document.getElementById('btnBackTo1').addEventListener('click', () => goStep(1));
 document.getElementById('btnToStep3').addEventListener('click', () => { buildSummary(); goStep(3); });
 document.getElementById('btnBackTo2').addEventListener('click', () => goStep(2));
@@ -1214,6 +1220,15 @@ function buildSummary() {
       `</div>`;
   }
   cards.innerHTML = html;
+
+  // 카드 병합 알림
+  const notice = document.getElementById('cardMergedNotice');
+  if (cardMerged) {
+    notice.style.display = 'block';
+    notice.innerHTML = `✅ 카드내역 ${cardMergedCount}건이 <strong>${cardMergedBranch}</strong> 지점에 반영되었습니다. 아래에서 카드 반영 손익현황을 생성하세요.`;
+  } else {
+    notice.style.display = 'none';
+  }
 }
 
 // ============================================================
@@ -1302,7 +1317,8 @@ async function generateExcel() {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     const yy = String(year).slice(2);
-    a.download = `${activeConfig.shortName}_손익현황_점장평가용_${yy}년.xlsx`;
+    const cardSuffix = cardMerged ? '_카드반영' : '';
+    a.download = `${activeConfig.shortName}_손익현황_점장평가용_${yy}년${cardSuffix}.xlsx`;
     a.click();
 
   } catch (err) {
@@ -2089,6 +2105,8 @@ let cardEntries = [];     // converted to journal format
 let cardDupResults = [];  // { isDup: true/false/'maybe', ... }
 let cardSelectedBranch = '';
 let cardMerged = false;   // 이미 병합했는지
+let cardMergedCount = 0;
+let cardMergedBranch = '';
 
 // -- Init card step --
 function initCardStep() {
@@ -2344,12 +2362,6 @@ function updateCardMergeBtn() {
   btn.textContent = `💳 카드내역 ${checks.length}건 병합 후 다음 →`;
 }
 
-// -- Skip card step --
-function skipCardStep() {
-  buildAccountMap();
-  goStep(2);
-}
-
 // -- Merge card entries --
 function mergeCardEntries() {
   if (cardMerged) {
@@ -2379,8 +2391,11 @@ function mergeCardEntries() {
   });
 
   cardMerged = true;
+  cardMergedCount = addedCount;
+  cardMergedBranch = branch;
   console.log(`✅ 카드내역 ${addedCount}건을 ${branch} 분개장에 병합 완료`);
 
+  // 재매핑 후 Step 2로 이동
   buildAccountMap();
   goStep(2);
 }
