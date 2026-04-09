@@ -373,17 +373,24 @@ const COMPANY_CONFIG = {
       { start: 15, end: 48, subtotalRow: 48 },
       { start: 49, end: 50, standalone: true },
     ],
+    summarySheets: [
+      { name: '합계_청기와타운', title: '청기와타운 전지점', exclude: ['항정사이', '야끼호', '블랙'] },
+      { name: '합계_전체', title: '전지점', exclude: [] },
+    ],
     janHardcode: {
-      '영등포': {5:225168329,8:95039953,9:8434253,10:1602727,11:762117,15:40965087,16:2837853,17:3728665,18:3581078,19:190000,20:1005890,22:1180000,26:96000,28:94500,29:220000,30:158200,31:6755036,32:11500000,33:577600,34:1414133,36:200000,37:4087279,38:52704,41:329400,43:50000,44:4953703},
-      '남영': {5:128922681,8:52406234,9:3805860,10:894546,11:605010,15:27987250,16:2753487,17:2278320,18:2489645,19:239900,20:273500,26:79760,28:27000,30:89400,31:3867676,32:12000000,33:387000,34:507370,36:200000,37:1561843,38:34056,40:300000,41:224400,43:50000,44:2836299},
-      '서울대': {5:132823984,8:55926885,9:2900265,10:987727,11:484604,15:29058898,16:2753485,17:1879110,18:2395278,19:626300,20:727133,22:49500,26:102150,28:27000,30:40000,31:4196608,32:16419000,33:364000,34:989235,36:200000,37:1354228,38:42997,40:1400000,41:171900,43:50000,44:2922128},
-      '교대': {5:124985181,8:53076199,9:3892105,10:763636,11:421310,15:30638000,16:2433299,17:2627645,18:2642233,19:30640,20:953908,22:77000,26:233030,28:27000,30:99400,31:3749552,32:10800000,33:350000,34:650864,36:200000,37:1618068,38:47647,40:3951316,43:50000,44:2749674},
-      '홍대': {5:80801864,8:27450397,9:1689400,10:818181,11:478671,15:18796417,17:1051160,18:1566368,19:116800,20:335936,26:111710,28:27000,30:129300,31:2217998,32:10205393,33:246000,34:701995,36:200000,37:2524857,38:40095,41:227800,43:50000,44:1777641},
-      '선릉': {5:129772520,8:58180306,9:4514300,10:909091,11:324508,15:30978761,16:4798057,17:2198865,18:2855568,19:88970,20:265020,26:124100,28:40500,30:709000,31:3966424,32:12000000,33:308000,34:2322959,36:200000,37:2332590,38:41317,40:1000000,41:278800,43:50000,44:2854995},
-      '송도': {5:112333218,8:42757763,9:1594330,10:727273,11:439170,15:24481000,16:3445492,17:1822080,18:2095458,19:72500,20:423718,26:141500,28:27000,30:160900,31:3096584,32:8500000,33:300000,34:2230614,36:200000,37:806265,38:48383,40:2751866,41:142400,43:50000,44:2471331},
-      '왕십리': {5:173179643,8:76289240,9:3450500,10:1454545,11:802519,15:39137900,16:4389140,17:2993910,18:3543920,19:398480,20:1268473,26:138680,28:27000,29:527273,30:450000,31:5429014,32:9048369,33:528750,34:686009,35:300000,36:200000,37:403544,38:50755,40:5131864,43:72000,44:3809952},
-      '서현': {5:101640898,8:41450047,9:2673590,10:727273,11:190520,15:22526124,16:6433716,17:1669100,18:2413320,19:58950,20:1067500,26:173610,28:40500,30:79200,31:3100960,32:11000000,33:400000,34:1476641,36:200000,37:2362903,38:39293,39:4000,40:2637558,41:138600,43:50000,44:2236100},
-      '마곡': {5:60537295,8:25718020,9:1632740,10:279546,11:140082,15:23091750,17:1850685,18:1924313,19:70000,20:734230,26:79260,28:27000,31:1837936,32:5400000,34:295411,36:200000,37:1049038,38:102198,40:1046290,41:198000,43:50000,44:1331820},
+      '영등포': {5:225168329,8:95039953,9:8434253,10:1602727,11:762117,15:40965087,16:2837853,17:3728665,18:3581078,19:190000,20:1005890,22:1180000,26:96000,28:94500,29:220000,30:158200,31:6755036,32:11500000,33:577600,34:1414133,36:200000,37:4087279,38:52704,41:329400,43:50000,44:4953703,45:2403241},
+      '남영': {5:128922681,8:52406234,9:3805860,10:894546,11:605010,15:27987250,16:2753487,17:2278320,18:2489645,19:239900,20:273500,26:79760,28:27000,30:89400,31:3867676,32:12000000,33:387000,34:507370,36:200000,37:1561843,38:34056,40:300000,41:224400,43:50000,44:2836299,45:2727611},
+      '서울대': {5:132823984,8:55926885,9:2900265,10:987727,11:484604,15:29058898,16:2753485,17:1879110,18:2395278,19:626300,20:727133,22:49500,26:102150,28:27000,30:40000,31:4196608,32:16419000,33:364000,34:989235,36:200000,37:1354228,38:42997,40:1400000,41:171900,43:50000,44:2922128,45:1567157},
+      '교대': {5:124985181,8:53076199,9:3892105,10:763636,11:421310,15:30638000,16:2433299,17:2627645,18:2642233,19:30640,20:953908,22:77000,26:233030,28:27000,30:99400,31:3749552,32:10800000,33:350000,34:650864,36:200000,37:1618068,38:47647,40:3951316,43:50000,44:2749674,45:3115177},
+      '홍대': {5:80801864,8:27450397,9:1689400,10:818181,11:478671,15:18796417,17:1051160,18:1566368,19:116800,20:335936,26:111710,28:27000,30:129300,31:2217998,32:10205393,33:246000,34:701995,36:200000,37:2524857,38:40095,41:227800,43:50000,44:1777641,45:1994714},
+      '선릉': {5:129772520,8:58180306,9:4514300,10:909091,11:324508,15:30978761,16:4798057,17:2198865,18:2855568,19:88970,20:265020,26:124100,28:40500,30:709000,31:3966424,32:12000000,33:308000,34:2322959,36:200000,37:2332590,38:41317,40:1000000,41:278800,43:50000,44:2854995,45:3818745},
+      '송도': {5:112333218,8:42757763,9:1594330,10:727273,11:439170,15:24481000,16:3445492,17:1822080,18:2095458,19:72500,20:423718,26:141500,28:27000,30:160900,31:3096584,32:8500000,33:300000,34:2230614,36:200000,37:806265,38:48383,40:2751866,41:142400,43:50000,44:2471331,45:852633},
+      '왕십리': {5:173179643,8:76289240,9:3450500,10:1454545,11:802519,15:39137900,16:4389140,17:2993910,18:3543920,19:398480,20:1268473,26:138680,28:27000,29:527273,30:450000,31:5429014,32:9048369,33:528750,34:686009,35:300000,36:200000,37:403544,38:50755,40:5131864,43:72000,44:3809952,45:1592899},
+      '서현': {5:101640898,8:41450047,9:2673590,10:727273,11:190520,15:22526124,16:6433716,17:1669100,18:2413320,19:58950,20:1067500,26:173610,28:40500,30:79200,31:3100960,32:11000000,33:400000,34:1476641,36:200000,37:2362903,38:39293,39:4000,40:2637558,41:138600,43:50000,44:2236100,45:4923554},
+      '마곡': {5:60537295,8:25718020,9:1632740,10:279546,11:140082,15:23091750,17:1850685,18:1924313,19:70000,20:734230,26:79260,28:27000,31:1837936,32:5400000,34:295411,36:200000,37:1049038,38:102198,40:1046290,41:198000,43:50000,44:1331820,45:200254},
+      '블랙': {22:150000,26:28300,28:27000,37:674978,38:33000,45:13647589},
+      '야끼호': {5:36417942,8:6447557,9:5777000,10:81819,11:219760,15:11910152,17:799910,18:575083,19:277400,20:94980,26:87150,28:27000,31:546269,32:2000000,34:137042,36:200000,37:780911,38:36897,43:112000,44:801195,45:1511024},
+      '항정사이': {5:70274346,8:15811177,9:3131344,11:477000,15:20012556,17:2472390,18:1486130,19:202800,20:344390,25:1240000,26:69830,28:97000,30:103400,31:1054077,32:11190000,33:645000,34:462000,35:183700,36:200000,37:2633352,38:106946,41:133200,43:60000,44:1546036,45:2197900},
     },
   },
   invest: {
@@ -481,6 +488,7 @@ const COMPANY_CONFIG = {
       { start: 15, end: 44, subtotalRow: 44 },
       { start: 45, end: 46, standalone: true },
     ],
+    summarySheets: [],
     janHardcode: {
       '돼봉': {5:37851427,9:8980782,10:1195267,12:224600,15:14267764,17:1072084,18:1040880,20:304275,21:200000,23:4543400,24:2306280,26:900000,27:41546,28:612513,29:762271,30:1135508,31:433100,32:150000,33:382000,34:286500,35:70000,36:600900,41:252380,42:10109821},
       '진주섬': {5:74171458,9:29980435,10:4293107,12:167782,15:19770112,17:1495091,18:1531525,20:233000,23:10998400,28:347000,29:1571200,36:436000},
@@ -1288,7 +1296,14 @@ async function generateExcel(mode = 'eval') {
       fill.style.width = (step / totalSteps * 100) + '%';
     }
 
-    // === 2단계: 합계 시트 ===
+    // === 2단계: 그룹 합계 시트 (합계_청기와타운, 합계_전체 등) ===
+    for (const ss of (activeConfig.summarySheets || [])) {
+      const gsWs = wb.addWorksheet(ss.name);
+      gsWs.properties.tabColor = { argb: 'FFCB4427' };
+      buildGroupTotalSheet(gsWs, ss.title, branches, ss.exclude, year);
+    }
+
+    // === 3단계: 합계 시트 ===
     buildTotalSheet(wb, branches, year);
     step++;
     fill.style.width = (step / totalSteps * 100) + '%';
@@ -1402,6 +1417,10 @@ function thinBorder() {
     left: { style: 'thin' }, right: { style: 'thin' }
   };
 }
+function whiteThinBorder() {
+  const w = { style: 'thin', color: { argb: 'FFFFFFFF' } };
+  return { top: w, bottom: w, left: w, right: w };
+}
 function borderLRT() { return { left:{style:'thin'}, right:{style:'thin'}, top:{style:'thin'} }; }
 function borderLR() { return { left:{style:'thin'}, right:{style:'thin'} }; }
 function borderLRB() { return { left:{style:'thin'}, right:{style:'thin'}, bottom:{style:'thin'} }; }
@@ -1438,7 +1457,7 @@ function styleCell(cell, opts) {
   else if (opts.fill === CLR_SUBTOTAL) fontOpts.color = { argb: CLR_SUBTOTAL_FONT };
   else if (opts.fill === CLR_REVENUE) fontOpts.color = { argb: CLR_REVENUE_FONT };
   cell.font = fontOpts;
-  cell.border = thinBorder();
+  cell.border = (opts.fill === CLR_HEADER) ? whiteThinBorder() : thinBorder();
   if (opts.numFmt) cell.numFmt = opts.numFmt;
   if (opts.fill) fillCell(cell, opts.fill);
   if (opts.align) cell.alignment = opts.align;
@@ -1710,9 +1729,9 @@ function buildEvalSheet(ws, branch, jSheetName, cSheetName, year, mode = 'eval')
     row.getCell(3).border = thinBorder();
     for (let c = 4; c <= 16; c++) {
       if (isGeneral) {
-        // 일반손익용: 예비비 = 매출소계 × 7%
+        // 일반손익용: 예비비 = 매출소계 × 0.7%
         const cl = colLetter(c);
-        row.getCell(c).value = { formula: `${cl}${cfg.revenueSubtotalRow}*0.07` };
+        row.getCell(c).value = { formula: `${cl}${cfg.revenueSubtotalRow}*0.007` };
       }
       styleCell(row.getCell(c), { numFmt: FMT_NUM });
     }
@@ -2007,6 +2026,352 @@ function buildEvalSheet(ws, branch, jSheetName, cSheetName, year, mode = 'eval')
   }
 
   // Freeze panes + 눈금선 끄기 + 배율 75%
+  ws.views = [{ state: 'frozen', xSplit: 3, ySplit: 4, topLeftCell: 'D5', activeCell: 'D5', showGridLines: false, zoomScale: 75 }];
+}
+
+function buildGroupTotalSheet(ws, title, branches, excludeBranches, year) {
+  const cfg = activeConfig;
+
+  ws.getColumn(1).width = 2.2;
+  ws.getColumn(2).width = 11;
+  ws.getColumn(3).width = 18;
+  for (let i = 4; i <= 15; i++) ws.getColumn(i).width = 15;
+  ws.getColumn(16).width = 17;
+
+  const yy = String(year).slice(2);
+  const months = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  const firstBranch = branches[0];
+  const lastBranch = branches[branches.length - 1];
+
+  // Cross-branch SUM formula
+  function crossSum(cl, rowNum) {
+    let f = `SUM('${firstBranch}:${lastBranch}'!${cl}${rowNum})`;
+    for (const ex of excludeBranches) {
+      f += `-'${ex}'!${cl}${rowNum}`;
+    }
+    return f;
+  }
+
+  // === Row 1: Title ===
+  ws.getRow(1).getCell(1).value = '';
+  ws.getRow(1).getCell(2).value = `▣ ${title} 연간 손익 현황`;
+  ws.getRow(1).getCell(2).font = { name: '맑은 고딕', size: 12, bold: true };
+
+  // === Rows 3-4: Headers ===
+  const r3 = ws.getRow(3);
+  ws.mergeCells('B3:C4');
+  r3.getCell(2).value = '구분';
+  styleCell(r3.getCell(2), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center', vertical: 'middle' } });
+  r3.getCell(4).value = yy + '년';
+  ws.mergeCells('D3:O3');
+  r3.getCell(16).value = '';
+  for (let c = 4; c <= 16; c++) {
+    styleCell(r3.getCell(c), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center' } });
+  }
+
+  const r4 = ws.getRow(4);
+  for (let i = 0; i < 12; i++) {
+    r4.getCell(4 + i).value = months[i];
+    styleCell(r4.getCell(4 + i), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center' } });
+  }
+  r4.getCell(16).value = '연간';
+  styleCell(r4.getCell(16), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center' } });
+
+  // Helper: data row with cross-branch SUM
+  function setDataRow(rowNum, bLabel, cLabel) {
+    const row = ws.getRow(rowNum);
+    if (bLabel) { row.getCell(2).value = bLabel; row.getCell(2).font = { name: '맑은 고딕', size: 10, bold: true }; }
+    if (cLabel) { row.getCell(3).value = cLabel; row.getCell(3).font = { name: '맑은 고딕', size: 10 }; }
+    for (let c = 4; c <= 15; c++) {
+      row.getCell(c).value = { formula: crossSum(colLetter(c), rowNum) };
+      styleCell(row.getCell(c), { numFmt: FMT_NUM });
+    }
+    row.getCell(16).value = { formula: `SUM(D${rowNum}:O${rowNum})` };
+    styleCell(row.getCell(16), { numFmt: FMT_NUM, bold: true });
+    row.getCell(2).border = thinBorder();
+    row.getCell(3).border = thinBorder();
+  }
+
+  // === SECTION 1 ===
+  // 매장매출
+  setDataRow(5, '매출', '매장매출');
+
+  // Empty revenue rows
+  for (let r = 6; r < cfg.revenueSubtotalRow; r++) {
+    const row = ws.getRow(r);
+    for (let c = 2; c <= 16; c++) {
+      row.getCell(c).border = thinBorder();
+      if (c >= 4) row.getCell(c).numFmt = FMT_NUM;
+    }
+  }
+
+  // Revenue subtotal
+  {
+    const stRow = cfg.revenueSubtotalRow;
+    const row = ws.getRow(stRow);
+    row.getCell(3).value = '소계'; row.getCell(3).font = { name: '맑은 고딕', size: 10, bold: true };
+    row.getCell(2).border = thinBorder(); row.getCell(3).border = thinBorder();
+    for (let c = 4; c <= 16; c++) {
+      row.getCell(c).value = { formula: `SUM(${colLetter(c)}5:${colLetter(c)}${stRow - 1})` };
+      styleCell(row.getCell(c), { numFmt: FMT_NUM, bold: true, fill: CLR_SUBTOTAL });
+    }
+  }
+
+  // COGS items
+  const cogsItems = cfg.evalTargets.filter(t => t.type === 'cogs');
+  cogsItems.forEach((item, idx) => setDataRow(item.row, idx === 0 ? '매출원가' : '', item.label));
+
+  // Empty COGS rows
+  const lastCogsItemRow = cogsItems.length > 0 ? cogsItems[cogsItems.length - 1].row : cfg.cogsStartRow;
+  for (let r = lastCogsItemRow + 1; r < cfg.cogsSubtotalRow; r++) {
+    const row = ws.getRow(r);
+    for (let c = 2; c <= 16; c++) { row.getCell(c).border = thinBorder(); if (c >= 4) row.getCell(c).numFmt = FMT_NUM; }
+  }
+
+  // COGS subtotal
+  {
+    const row = ws.getRow(cfg.cogsSubtotalRow);
+    row.getCell(3).value = '소계'; row.getCell(3).font = { name: '맑은 고딕', size: 10, bold: true };
+    row.getCell(2).border = thinBorder(); row.getCell(3).border = thinBorder();
+    for (let c = 4; c <= 16; c++) {
+      row.getCell(c).value = { formula: `SUM(${colLetter(c)}${cfg.cogsStartRow}:${colLetter(c)}${cfg.cogsSubtotalRow - 1})` };
+      styleCell(row.getCell(c), { numFmt: FMT_NUM, bold: true, fill: CLR_SUBTOTAL });
+    }
+  }
+
+  // Gross profit
+  {
+    const row = ws.getRow(cfg.grossProfitRow);
+    row.getCell(2).value = '매출이익'; row.getCell(2).font = { name: '맑은 고딕', size: 10, bold: true };
+    row.getCell(2).border = thinBorder(); row.getCell(3).border = thinBorder();
+    for (let c = 4; c <= 16; c++) {
+      const cl = colLetter(c);
+      row.getCell(c).value = { formula: `${cl}${cfg.revenueSubtotalRow}-${cl}${cfg.cogsSubtotalRow}` };
+      styleCell(row.getCell(c), { numFmt: FMT_NUM, bold: true, fill: CLR_REVENUE });
+    }
+  }
+
+  // SGA items (all cross-branch SUM)
+  const sgaItems = cfg.evalTargets.filter(t => t.type === 'sga');
+  sgaItems.forEach((item, idx) => setDataRow(item.row, idx === 0 ? '판관비' : '', item.label));
+
+  // Calc items (퇴직급여, 카드수수료 etc.) - also cross-branch SUM
+  for (const [rowStr, calcDef] of Object.entries(cfg.calcItems)) {
+    setDataRow(parseInt(rowStr), '', calcDef.label);
+  }
+
+  // Reserve row (예비비) - cross-branch SUM
+  if (cfg.reserveRow && !sgaItems.find(t => t.row === cfg.reserveRow) && !cfg.calcItems[cfg.reserveRow]) {
+    setDataRow(cfg.reserveRow, '', '예비비');
+  }
+
+  // Empty rows before SGA subtotal
+  for (const emptyRow of (cfg.emptyBeforeSgaSubtotal || [])) {
+    const row = ws.getRow(emptyRow);
+    for (let c = 2; c <= 16; c++) row.getCell(c).border = thinBorder();
+  }
+
+  // SGA subtotal
+  {
+    const row = ws.getRow(cfg.sgaSubtotalRow);
+    row.getCell(3).value = '소계'; row.getCell(3).font = { name: '맑은 고딕', size: 10, bold: true };
+    row.getCell(2).border = thinBorder(); row.getCell(3).border = thinBorder();
+    for (let c = 4; c <= 16; c++) {
+      row.getCell(c).value = { formula: `SUM(${colLetter(c)}${cfg.sgaStartRow}:${colLetter(c)}${cfg.sgaSubtotalRow - 1})` };
+      styleCell(row.getCell(c), { numFmt: FMT_NUM, bold: true, fill: CLR_SUBTOTAL });
+    }
+  }
+
+  // Operating income
+  {
+    const row = ws.getRow(cfg.operatingRow);
+    row.getCell(2).value = '영업이익'; row.getCell(2).font = { name: '맑은 고딕', size: 10, bold: true };
+    row.getCell(2).border = thinBorder(); row.getCell(3).border = thinBorder();
+    for (let c = 4; c <= 16; c++) {
+      const cl = colLetter(c);
+      row.getCell(c).value = { formula: `${cl}${cfg.grossProfitRow}-${cl}${cfg.sgaSubtotalRow}` };
+      styleCell(row.getCell(c), { numFmt: FMT_NUM, bold: true, fill: CLR_HIGHLIGHT });
+    }
+  }
+
+  // Operating ratio
+  {
+    const row = ws.getRow(cfg.ratioRow);
+    row.getCell(2).value = '영업이익률'; row.getCell(2).font = { name: '맑은 고딕', size: 10, bold: true };
+    row.getCell(2).border = thinBorder(); row.getCell(3).border = thinBorder();
+    for (let c = 4; c <= 16; c++) {
+      const cl = colLetter(c);
+      row.getCell(c).value = { formula: `IFERROR(${cl}${cfg.operatingRow}/${cl}${cfg.revenueSubtotalRow},0)` };
+      styleCell(row.getCell(c), { numFmt: FMT_PCT, bold: true, fill: CLR_HIGHLIGHT });
+    }
+  }
+
+  // === SECTION 2: 요약 ===
+  const s2 = cfg.section2;
+  {
+    const hdr1 = s2.headerRows[0], hdr2 = s2.headerRows[1];
+    ws.mergeCells(`B${hdr1}:C${hdr2}`);
+    const rh1 = ws.getRow(hdr1);
+    rh1.getCell(2).value = '금액';
+    styleCell(rh1.getCell(2), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center', vertical: 'middle' } });
+    rh1.getCell(4).value = yy + '년';
+    ws.mergeCells(`D${hdr1}:O${hdr1}`);
+    for (let c = 4; c <= 16; c++) styleCell(rh1.getCell(c), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center' } });
+
+    const rh2 = ws.getRow(hdr2);
+    for (let i = 0; i < 12; i++) {
+      rh2.getCell(4 + i).value = months[i];
+      styleCell(rh2.getCell(4 + i), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center' } });
+    }
+    rh2.getCell(16).value = '연간';
+    styleCell(rh2.getCell(16), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center' } });
+  }
+
+  // Section 2 data rows
+  for (const sr of s2.rows) {
+    const fillMap = { revenue: CLR_REVENUE, subtotal: CLR_SUBTOTAL, highlight: CLR_HIGHLIGHT };
+    const row = ws.getRow(sr.row);
+    if (sr.b) { row.getCell(2).value = sr.b; row.getCell(2).font = { name: '맑은 고딕', size: 10, bold: true }; }
+    if (sr.c) { row.getCell(3).value = sr.c; row.getCell(3).font = { name: '맑은 고딕', size: 10 }; }
+    row.getCell(2).border = thinBorder(); row.getCell(3).border = thinBorder();
+    for (let c = 4; c <= 16; c++) {
+      const cl = colLetter(c);
+      row.getCell(c).value = { formula: sr.formula(cl) };
+      const cellOpts = { numFmt: FMT_NUM };
+      if (sr.style && fillMap[sr.style]) cellOpts.fill = fillMap[sr.style];
+      if (sr.style === 'bold' || sr.style === 'revenue' || sr.style === 'subtotal' || sr.style === 'highlight') cellOpts.bold = true;
+      styleCell(row.getCell(c), cellOpts);
+    }
+  }
+
+  // === SECTION 3: 비율 ===
+  const s3 = cfg.section3;
+  {
+    const hdr1 = s3.headerRows[0], hdr2 = s3.headerRows[1];
+    ws.mergeCells(`B${hdr1}:C${hdr2}`);
+    const rh1 = ws.getRow(hdr1);
+    rh1.getCell(2).value = '비율';
+    styleCell(rh1.getCell(2), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center', vertical: 'middle' } });
+    rh1.getCell(4).value = yy + '년';
+    ws.mergeCells(`D${hdr1}:O${hdr1}`);
+    for (let c = 4; c <= 16; c++) styleCell(rh1.getCell(c), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center' } });
+
+    const rh2 = ws.getRow(hdr2);
+    for (let i = 0; i < 12; i++) {
+      rh2.getCell(4 + i).value = months[i];
+      styleCell(rh2.getCell(4 + i), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center' } });
+    }
+    rh2.getCell(16).value = '연간';
+    styleCell(rh2.getCell(16), { bold: true, fill: CLR_HEADER, fontColor: CLR_HEADER_FONT, align: { horizontal: 'center' } });
+  }
+
+  // Section 3 ratio rows
+  const s2RevenueRow = s2.rows[0].row;
+  s2.rows.forEach((sr, idx) => {
+    const dstRow = s3.dataStartRow + idx;
+    const row = ws.getRow(dstRow);
+    if (sr.b) { row.getCell(2).value = sr.b; row.getCell(2).font = { name: '맑은 고딕', size: 10, bold: true }; }
+    if (sr.c) { row.getCell(3).value = sr.c; row.getCell(3).font = { name: '맑은 고딕', size: 10 }; }
+    row.getCell(2).border = thinBorder(); row.getCell(3).border = thinBorder();
+
+    const fillMap = { revenue: CLR_REVENUE, subtotal: CLR_SUBTOTAL, highlight: CLR_HIGHLIGHT };
+    for (let c = 4; c <= 16; c++) {
+      const cl = colLetter(c);
+      row.getCell(c).value = { formula: `IFERROR(${cl}${sr.row}/${cl}$${s2RevenueRow},0)` };
+      const cellOpts = { numFmt: FMT_PCT };
+      if (sr.style && fillMap[sr.style]) cellOpts.fill = fillMap[sr.style];
+      if (sr.style === 'bold' || sr.style === 'revenue' || sr.style === 'subtotal' || sr.style === 'highlight') cellOpts.bold = true;
+      styleCell(row.getCell(c), cellOpts);
+    }
+  });
+
+  // === 테두리 및 레이아웃 정리 ===
+  function ensureDefaults(startRow, endRow, defaultNumFmt) {
+    for (let r = startRow; r <= endRow; r++) {
+      const row = ws.getRow(r);
+      for (let c = 2; c <= 16; c++) {
+        const cell = row.getCell(c);
+        if (c >= 4 && !cell.numFmt) cell.numFmt = defaultNumFmt;
+        if (!cell.font || !cell.font.name) cell.font = { name: '맑은 고딕', size: 10 };
+      }
+    }
+  }
+
+  for (let r = 3; r <= cfg.ratioRow; r++) {
+    const row = ws.getRow(r);
+    for (let c = 2; c <= 16; c++) {
+      const cell = row.getCell(c);
+      if (c >= 4 && !cell.numFmt) { cell.numFmt = (r === cfg.ratioRow) ? FMT_PCT : FMT_NUM; }
+      if (!cell.font || !cell.font.name) cell.font = { name: '맑은 고딕', size: 10 };
+    }
+  }
+
+  const s2LastRow = s2.rows[s2.rows.length - 1].row;
+  const s3LastRow = s3.dataStartRow + s2.rows.length - 1;
+  ensureDefaults(s2.headerRows[0], s2LastRow, FMT_NUM);
+  ensureDefaults(s3.headerRows[0], s3LastRow, FMT_PCT);
+
+  // Group-based borders
+  function applyGroupBorders(groups) {
+    groups.forEach(g => {
+      for (let r = g.start; r <= g.end; r++) {
+        const row = ws.getRow(r);
+        const isFirst = r === g.start, isLast = r === g.end;
+        const isSubtotal = r === g.subtotalRow, isStandalone = !!g.standalone;
+        for (let c = 2; c <= 16; c++) {
+          const cell = row.getCell(c);
+          if (c === 2) {
+            if (isStandalone && g.start === g.end) cell.border = borderLTB();
+            else if (isFirst) cell.border = borderLT();
+            else if (isLast) cell.border = borderLB();
+            else cell.border = borderL();
+          } else {
+            if (isStandalone || isSubtotal) cell.border = thinBorder();
+            else if (isFirst) cell.border = borderLRT();
+            else if (isLast) cell.border = borderLRB();
+            else cell.border = borderLR();
+          }
+        }
+      }
+    });
+  }
+
+  applyGroupBorders(cfg.sec1Groups);
+
+  const sec2Groups = [];
+  let gi = 0;
+  while (gi < s2.rows.length) {
+    const sr = s2.rows[gi];
+    if (sr.style === 'revenue' || sr.style === 'bold' || sr.style === 'highlight') {
+      sec2Groups.push({ start: sr.row, end: sr.row, standalone: true }); gi++;
+    } else if (sr.style === 'subtotal') {
+      sec2Groups.push({ start: sr.row, end: sr.row, standalone: true }); gi++;
+    } else {
+      let groupStart = sr.row, j = gi;
+      while (j < s2.rows.length && s2.rows[j].style !== 'subtotal' && s2.rows[j].style !== 'bold' && s2.rows[j].style !== 'highlight' && s2.rows[j].style !== 'revenue') j++;
+      if (j < s2.rows.length && s2.rows[j].style === 'subtotal') {
+        sec2Groups.push({ start: groupStart, end: s2.rows[j].row, subtotalRow: s2.rows[j].row }); gi = j + 1;
+      } else {
+        sec2Groups.push({ start: groupStart, end: s2.rows[j - 1].row }); gi = j;
+      }
+    }
+  }
+  applyGroupBorders(sec2Groups);
+
+  const sec3Groups = sec2Groups.map(g => {
+    const offset = s3.dataStartRow - s2.rows[0].row;
+    const ng = { start: g.start + offset, end: g.end + offset };
+    if (g.subtotalRow) ng.subtotalRow = g.subtotalRow + offset;
+    if (g.standalone) ng.standalone = true;
+    return ng;
+  });
+  applyGroupBorders(sec3Groups);
+
+  for (let c = 2; c <= 16; c++) {
+    const cell = ws.getRow(1).getCell(c);
+    if (!cell.font || !cell.font.name) cell.font = { name: '맑은 고딕', size: 10 };
+  }
+
   ws.views = [{ state: 'frozen', xSplit: 3, ySplit: 4, topLeftCell: 'D5', activeCell: 'D5', showGridLines: false, zoomScale: 75 }];
 }
 
