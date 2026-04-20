@@ -163,6 +163,11 @@ tr.card-new td { }
         <div class="name">인베스트먼트</div>
         <div class="desc">제이에스인베스트먼트</div>
       </div>
+      <div class="company-card" onclick="selectCompany('food')">
+        <div class="icon">🥩</div>
+        <div class="name">푸드</div>
+        <div class="desc">제이에스푸드</div>
+      </div>
     </div>
   </div>
 
@@ -266,7 +271,7 @@ tr.card-new td { }
 // ============================================================
 // DATA
 // ============================================================
-let currentCompany = null; // 'fnb' or 'invest'
+let currentCompany = null; // 'fnb' | 'invest' | 'food'
 
 const COMPANY_CONFIG = {
   fnb: {
@@ -430,13 +435,17 @@ const COMPANY_CONFIG = {
       { label: '차량리스', row: 40, type: 'sga' },
       { label: '화재보험', row: 41, type: 'sga' },
       { label: '감가상각비', row: 42, type: 'sga' },
+      { label: '카드수수료', row: 43, type: 'calc' },
     ],
     calcItems: {
       17: { label: '퇴직급여', formula: cl => `${cl}15/12` },
+      43: { label: '카드수수료', formula: cl => `${cl}8*0.022` },
     },
     calcDataJson: (vals) => {
       const salary = (vals[15] || 0) + (vals[16] || 0);
       vals[17] = Math.round(salary / 12);
+      const rev = (vals[5] || 0) + (vals[6] || 0) + (vals[7] || 0);
+      vals[43] = Math.round(rev * 0.022);
     },
     revenueSubtotalRow: 8,
     revenueRows: [5, 6, 7],
@@ -445,48 +454,48 @@ const COMPANY_CONFIG = {
     cogsSubtotalRow: 13,
     grossProfitRow: 14,
     sgaStartRow: 15,
-    sgaEndRow: 43,
-    sgaSubtotalRow: 44,
-    operatingRow: 45,
-    ratioRow: 46,
-    reserveRow: 43,
+    sgaEndRow: 44,
+    sgaSubtotalRow: 45,
+    operatingRow: 46,
+    ratioRow: 47,
+    reserveRow: 44,
     emptyBeforeSgaSubtotal: [],
-    section2StartRow: 48,
+    section2StartRow: 49,
     section2: {
-      headerRows: [48, 49],
+      headerRows: [49, 50],
       rows: [
-        { row: 50, b: '매출액', c: '', formula: cl => `+${cl}8`, style: 'revenue' },
-        { row: 51, b: '매출원가', c: '식자재', formula: cl => `+${cl}9` },
-        { row: 52, b: '', c: '주류', formula: cl => `+${cl}10` },
-        { row: 53, b: '', c: '기타', formula: cl => `+${cl}11+${cl}12` },
-        { row: 54, b: '', c: '소계', formula: cl => `SUM(${cl}51:${cl}53)`, style: 'subtotal' },
-        { row: 55, b: '매출총이익', c: '', formula: cl => `${cl}50-${cl}54`, style: 'bold' },
-        { row: 56, b: '인건비', c: '급여', formula: cl => `+${cl}15+${cl}16` },
-        { row: 57, b: '', c: '4대보험', formula: cl => `+${cl}18` },
-        { row: 58, b: '', c: '퇴직금', formula: cl => `+${cl}17` },
-        { row: 59, b: '', c: '소계', formula: cl => `SUM(${cl}56:${cl}58)`, style: 'subtotal' },
-        { row: 60, b: '경비', c: '임차료', formula: cl => `+${cl}23` },
-        { row: 61, b: '', c: '수도광열비', formula: cl => `+${cl}29` },
-        { row: 62, b: '', c: '광고비', formula: cl => `+${cl}22` },
-        { row: 63, b: '', c: '매장소모품', formula: cl => `+${cl}28` },
-        { row: 64, b: '', c: '상각비', formula: cl => `+${cl}42` },
-        { row: 65, b: '', c: '기타', formula: cl => `+${cl}44-SUM(${cl}59:${cl}64)` },
-        { row: 66, b: '', c: '소계', formula: cl => `SUM(${cl}60:${cl}65)`, style: 'subtotal' },
-        { row: 67, b: '영업이익', c: '', formula: cl => `${cl}55-${cl}59-${cl}66`, style: 'highlight' },
+        { row: 51, b: '매출액', c: '', formula: cl => `+${cl}8`, style: 'revenue' },
+        { row: 52, b: '매출원가', c: '식자재', formula: cl => `+${cl}9` },
+        { row: 53, b: '', c: '주류', formula: cl => `+${cl}10` },
+        { row: 54, b: '', c: '기타', formula: cl => `+${cl}11+${cl}12` },
+        { row: 55, b: '', c: '소계', formula: cl => `SUM(${cl}52:${cl}54)`, style: 'subtotal' },
+        { row: 56, b: '매출총이익', c: '', formula: cl => `${cl}51-${cl}55`, style: 'bold' },
+        { row: 57, b: '인건비', c: '급여', formula: cl => `+${cl}15+${cl}16` },
+        { row: 58, b: '', c: '4대보험', formula: cl => `+${cl}18` },
+        { row: 59, b: '', c: '퇴직금', formula: cl => `+${cl}17` },
+        { row: 60, b: '', c: '소계', formula: cl => `SUM(${cl}57:${cl}59)`, style: 'subtotal' },
+        { row: 61, b: '경비', c: '임차료', formula: cl => `+${cl}23` },
+        { row: 62, b: '', c: '수도광열비', formula: cl => `+${cl}29` },
+        { row: 63, b: '', c: '광고비', formula: cl => `+${cl}22` },
+        { row: 64, b: '', c: '매장소모품', formula: cl => `+${cl}28` },
+        { row: 65, b: '', c: '상각비', formula: cl => `+${cl}42` },
+        { row: 66, b: '', c: '기타', formula: cl => `+${cl}45-SUM(${cl}60:${cl}65)` },
+        { row: 67, b: '', c: '소계', formula: cl => `SUM(${cl}61:${cl}66)`, style: 'subtotal' },
+        { row: 68, b: '영업이익', c: '', formula: cl => `${cl}56-${cl}60-${cl}67`, style: 'highlight' },
       ],
     },
-    section3StartRow: 69,
+    section3StartRow: 70,
     section3: {
-      headerRows: [69, 70],
-      refStartRow: 50,
-      dataStartRow: 71,
+      headerRows: [70, 71],
+      refStartRow: 51,
+      dataStartRow: 72,
     },
     sec1Groups: [
       { start: 5, end: 8, subtotalRow: 8 },
       { start: 9, end: 13, subtotalRow: 13 },
       { start: 14, end: 14, standalone: true },
-      { start: 15, end: 44, subtotalRow: 44 },
-      { start: 45, end: 46, standalone: true },
+      { start: 15, end: 45, subtotalRow: 45 },
+      { start: 46, end: 47, standalone: true },
     ],
     summarySheets: [
       { name: '합계_전지점', title: '전지점', exclude: [] },
@@ -494,6 +503,184 @@ const COMPANY_CONFIG = {
     janHardcode: {
       '돼봉': {5:37851427,9:8980782,10:1195267,12:224600,15:14267764,17:1072084,18:1040880,20:304275,21:200000,23:4543400,24:2306280,26:900000,27:41546,28:612513,29:762271,30:1135508,31:433100,32:150000,33:382000,34:286500,35:70000,36:600900,41:252380,42:10109821},
       '진주섬': {5:74171458,9:29980435,10:4293107,12:167782,15:19770112,17:1495091,18:1531525,20:233000,23:10998400,28:347000,29:1571200,36:436000,42:2466773},
+    },
+  },
+  food: {
+    name: '제이에스푸드',
+    shortName: '푸드',
+    evalTargets: [
+      { label: '상품매출-원육', row: 5, type: 'revenue' },
+      { label: '상품매출-물류센터', row: 6, type: 'revenue' },
+      { label: '상품매출-광고', row: 7, type: 'revenue' },
+      { label: '선물세트매출', row: 8, type: 'revenue' },
+      { label: '오픈매출', row: 9, type: 'revenue' },
+      { label: '상품매출-기물', row: 10, type: 'revenue' },
+      { label: '상품매출-기타', row: 11, type: 'revenue' },
+      { label: '로열티매출', row: 12, type: 'revenue' },
+      { label: '임대료수익', row: 13, type: 'revenue' },
+      { label: '가공육', row: 15, type: 'cogs' },
+      { label: '물류센터 매출원가', row: 16, type: 'cogs' },
+      { label: '선물세트 매출원가', row: 17, type: 'cogs' },
+      { label: '오픈물품 매출원가', row: 18, type: 'cogs' },
+      { label: '기타 매출원가', row: 19, type: 'cogs' },
+      { label: '외주가공비', row: 20, type: 'cogs' },
+      { label: '급여(사무실)', row: 23, type: 'sga' },
+      { label: '상여금(사무실)', row: 24, type: 'sga' },
+      { label: '퇴직급여(사무실)', row: 25, type: 'calc' },
+      { label: '급여(공장)', row: 26, type: 'sga' },
+      { label: '상여금(공장)', row: 27, type: 'sga' },
+      { label: '퇴직급여(공장)', row: 28, type: 'calc' },
+      { label: '4대보험', row: 29, type: 'sga' },
+      { label: '공장_원재료', row: 30, type: 'sga' },
+      { label: '공장_임차료', row: 31, type: 'sga' },
+      { label: '공장_관리비', row: 32, type: 'sga' },
+      { label: '공장_수도광열비', row: 33, type: 'sga' },
+      { label: '공장_복리후생비', row: 34, type: 'sga' },
+      { label: '공장_사무용품비', row: 35, type: 'sga' },
+      { label: '공장_소모품비', row: 36, type: 'sga' },
+      { label: '공장_수선비', row: 37, type: 'sga' },
+      { label: '공장_지급수수료', row: 38, type: 'sga' },
+      { label: '공장_운반비', row: 39, type: 'sga' },
+      { label: '공장_보험료', row: 40, type: 'sga' },
+      { label: '광고비', row: 41, type: 'sga' },
+      { label: '임차료', row: 42, type: 'sga' },
+      { label: '수도광열비', row: 43, type: 'sga' },
+      { label: '복리후생비', row: 44, type: 'sga' },
+      { label: '전산비용', row: 45, type: 'sga' },
+      { label: '지급수수료', row: 46, type: 'sga' },
+      { label: '매장소모품', row: 47, type: 'sga' },
+      { label: '사무용품비', row: 48, type: 'sga' },
+      { label: '소모품비', row: 49, type: 'sga' },
+      { label: '여비교통비', row: 50, type: 'sga' },
+      { label: '수선비', row: 51, type: 'sga' },
+      { label: '운반비', row: 52, type: 'sga' },
+      { label: '차량리스', row: 53, type: 'sga' },
+      { label: '통신비', row: 54, type: 'sga' },
+      { label: '보증보험', row: 55, type: 'sga' },
+      { label: '연구개발비', row: 56, type: 'sga' },
+      { label: '업무추진비', row: 57, type: 'sga' },
+      { label: '세금과공과', row: 58, type: 'sga' },
+      { label: '교육훈련비', row: 59, type: 'sga' },
+      { label: '도서인쇄비', row: 60, type: 'sga' },
+      { label: '접대비', row: 61, type: 'sga' },
+      { label: '보험료', row: 62, type: 'sga' },
+      { label: '전기대행', row: 63, type: 'sga' },
+      { label: '방역대행', row: 64, type: 'sga' },
+      { label: '소방대행', row: 65, type: 'sga' },
+      { label: '잡비', row: 66, type: 'sga' },
+      { label: '감가상각비', row: 67, type: 'sga' },
+    ],
+    calcItems: {
+      25: { label: '퇴직급여(사무실)', formula: cl => `(${cl}23+${cl}24)/12` },
+      28: { label: '퇴직급여(공장)', formula: cl => `(${cl}26+${cl}27)/12` },
+      68: { label: '예비비', formula: cl => `${cl}14*0.005` },
+    },
+    calcDataJson: (vals) => {
+      vals[25] = Math.round(((vals[23] || 0) + (vals[24] || 0)) / 12);
+      vals[28] = Math.round(((vals[26] || 0) + (vals[27] || 0)) / 12);
+      const totalRev = [5,6,7,8,9,10,11,12,13].reduce((s,r) => s + (vals[r] || 0), 0);
+      vals[68] = Math.round(totalRev * 0.005);
+    },
+    revenueSubtotalRow: 14,
+    revenueRows: [5,6,7,8,9,10,11,12,13],
+    cogsStartRow: 15,
+    cogsEndRow: 20,
+    cogsSubtotalRow: 21,
+    grossProfitRow: 22,
+    sgaStartRow: 23,
+    sgaEndRow: 68,
+    sgaSubtotalRow: 69,
+    operatingRow: 70,
+    ratioRow: 71,
+    reserveRow: 68,
+    emptyBeforeSgaSubtotal: [],
+    section2StartRow: 73,
+    section2: {
+      headerRows: [73, 74],
+      rows: [
+        { row: 75, b: '매출액', c: '상품매출-원육', formula: cl => `+${cl}5`, style: 'revenue' },
+        { row: 76, b: '', c: '상품매출-물류센터', formula: cl => `+${cl}6` },
+        { row: 77, b: '', c: '오픈매출', formula: cl => `+${cl}9` },
+        { row: 78, b: '', c: '로열티매출', formula: cl => `+${cl}12` },
+        { row: 79, b: '', c: '기타', formula: cl => `+${cl}7+${cl}8+${cl}10+${cl}11+${cl}13` },
+        { row: 80, b: '', c: '소계', formula: cl => `+${cl}14`, style: 'subtotal' },
+        { row: 81, b: '매출원가', c: '가공육', formula: cl => `+${cl}15` },
+        { row: 82, b: '', c: '물류센터', formula: cl => `+${cl}16` },
+        { row: 83, b: '', c: '오픈물품', formula: cl => `+${cl}18` },
+        { row: 84, b: '', c: '외주가공비', formula: cl => `+${cl}20` },
+        { row: 85, b: '', c: '기타', formula: cl => `+${cl}17+${cl}19` },
+        { row: 86, b: '', c: '소계', formula: cl => `SUM(${cl}81:${cl}85)`, style: 'subtotal' },
+        { row: 87, b: '매출총이익', c: '', formula: cl => `${cl}80-${cl}86`, style: 'bold' },
+        { row: 88, b: '판관비', c: '인건비_사무실', formula: cl => `+${cl}23+${cl}24+${cl}25` },
+        { row: 89, b: '', c: '인건비_공장', formula: cl => `+${cl}26+${cl}27+${cl}28` },
+        { row: 90, b: '', c: '광고비', formula: cl => `+${cl}41` },
+        { row: 91, b: '', c: '복리후생비', formula: cl => `+${cl}44` },
+        { row: 92, b: '', c: '감가상각비', formula: cl => `+${cl}67` },
+        { row: 93, b: '', c: '공장_비용', formula: cl => `SUM(${cl}30:${cl}40)` },
+        { row: 94, b: '', c: '기타', formula: cl => `+${cl}69-SUM(${cl}88:${cl}93)` },
+        { row: 95, b: '', c: '소계', formula: cl => `SUM(${cl}88:${cl}94)`, style: 'subtotal' },
+        { row: 96, b: '영업이익', c: '', formula: cl => `${cl}87-${cl}95`, style: 'highlight' },
+      ],
+    },
+    section3StartRow: 98,
+    section3: {
+      headerRows: [98, 99],
+      refStartRow: 75,
+      dataStartRow: 100,
+    },
+    sec1Groups: [
+      { start: 5, end: 14, subtotalRow: 14 },
+      { start: 15, end: 21, subtotalRow: 21 },
+      { start: 22, end: 22, standalone: true },
+      { start: 23, end: 69, subtotalRow: 69 },
+      { start: 70, end: 71, standalone: true },
+    ],
+    defaultMapping: {
+      // 재고·B/S 계정 제외 (15xxx, 16xxx, 17xxx)
+      '15000': '__제외__', '15300': '__제외__', '15301': '__제외__', '15302': '__제외__',
+      '15304': '__제외__', '15305': '__제외__', '15306': '__제외__', '15307': '__제외__',
+      '15308': '__제외__', '15321': '__제외__', '15322': '__제외__', '15324': '__제외__',
+      '15325': '__제외__', '16900': '__제외__', '17900': '__제외__',
+      // 매출
+      '40401': '상품매출-원육', '40402': '상품매출-원육', '40403': '선물세트매출', '40404': '상품매출-원육',
+      '41100': '임대료수익', '41201': '로열티매출',
+      '41601': '상품매출-광고', '41602': '상품매출-기타',
+      '42000': '상품매출-기타', '42001': '상품매출-물류센터', '42003': '상품매출-물류센터', '42004': '상품매출-기타',
+      // 매출원가
+      '53300': '외주가공비',
+      // 공장 SGA (5xxx → 공장_)
+      '50300': '급여(공장)', '50500': '상여금(공장)',
+      '51100': '공장_복리후생비', '51200': '여비교통비', '51400': '통신비',
+      '51500': '공장_수도광열비', '51700': '세금과공과', '51800': '감가상각비',
+      '51900': '공장_임차료', '52000': '공장_수선비', '52100': '공장_보험료',
+      '52200': '차량리스', '52400': '공장_운반비',
+      '53000': '공장_소모품비', '53100': '공장_지급수수료',
+      // 판관비 (8xxx)
+      '80200': '급여(사무실)', '80300': '상여금(사무실)', '80500': '상여금(사무실)', '80600': '__제외__', '96200': '__제외__',
+      '81100': '복리후생비', '81200': '여비교통비', '81300': '접대비',
+      '81400': '통신비', '81500': '수도광열비', '81700': '세금과공과',
+      '81800': '감가상각비', '81900': '임차료', '82000': '수선비',
+      '82100': '보험료', '82300': '연구개발비', '82400': '운반비',
+      '82600': '도서인쇄비', '83000': '소모품비', '83100': '지급수수료',
+      '83300': '광고비', '84000': '감가상각비', '85100': '차량리스',
+    },
+    vendorRows: {
+      29: { vendors: ['건강보험공단', '국민연금공단', '근로복지공단'], excludeAccounts: ['25400'] },
+      42: { vendors: ['목원빌딩'] },
+    },
+    additionalVendorRows: {
+      53: { vendors: ['KB캐피탈'] },
+    },
+    vendorExcludeRows: {
+      34: { vendors: ['건강보험공단'], filterAccounts: ['51100'] },
+      44: { vendors: ['건강보험공단'], filterAccounts: ['81100'] },
+      40: { vendors: ['근로복지공단'], filterAccounts: ['52100'] },
+      62: { vendors: ['근로복지공단'], filterAccounts: ['82100'] },
+      58: { vendors: ['국민연금공단'], filterAccounts: ['51700', '81700'] },
+    },
+    summarySheets: [],
+    janHardcode: {
+      '푸드': {5:1227062529,6:38576133,7:7900000,8:1748183,11:5572735,12:58185836,13:22867272,15:794466941,16:11404364,17:1713850,20:132945380,23:106008117,26:43764516,29:10406605,30:877045,31:5000000,33:1967326,34:2162160,35:110818,36:5153384,38:1610600,39:1781828,40:775540,41:11113365,42:7000000,43:2545700,44:6521881,45:6650659,46:7029055,47:2573046,48:1630492,49:1164200,50:2454092,51:1900000,52:220673,53:2948637,54:2471903,56:241000,58:256500,61:432900,63:308181,65:100000},
     },
   },
 };
@@ -526,6 +713,9 @@ function autoMap(code, name) {
   // Helper: check if a label exists in the active company's evalTargets
   const hasLabel = (lbl) => TARGET_LABELS.includes(lbl);
 
+  // ── 회사별 defaultMapping 우선 적용 ──
+  if (activeConfig?.defaultMapping?.[c]) return activeConfig.defaultMapping[c];
+
   // ── B/S 계정 제외 (코드 기반, 확실한 것만) ──
   if (/^(10|11|12|14|20|21|22|23|24|25)/.test(c)) return '__제외__';
   if (/^13[^5]/.test(c) || c === '13500') return '__제외__';
@@ -539,8 +729,30 @@ function autoMap(code, name) {
   }
   if (/^45/.test(c)) return '식자재매입';
 
+  // ── 5xxx (제) 계정 → 공장_ 우선 배분 ──
+  if (/^5/.test(c)) {
+    if (n.includes('퇴직')) return '__제외__';
+    if (n.includes('외주') || n.includes('가공')) return hasLabel('외주가공비') ? '외주가공비' : '__제외__';
+    if (n.includes('급여') || n.includes('임금') || n.includes('잡급')) return hasLabel('급여(공장)') ? '급여(공장)' : '급여';
+    if (n.includes('상여')) return hasLabel('상여금(공장)') ? '상여금(공장)' : '상여금';
+    if (n.includes('임차') || n.includes('임대') || n.includes('월세')) return hasLabel('공장_임차료') ? '공장_임차료' : '임차료';
+    if (n.includes('리스')) return hasLabel('차량리스') ? '차량리스' : '임차료';
+    if (n.includes('수도') || n.includes('광열') || n.includes('가스')) return hasLabel('공장_수도광열비') ? '공장_수도광열비' : '수도광열비';
+    if (n.includes('복리') || n.includes('식대') || n.includes('경조')) return hasLabel('공장_복리후생비') ? '공장_복리후생비' : '복리후생비';
+    if (n.includes('소모품')) return hasLabel('공장_소모품비') ? '공장_소모품비' : '소모품비';
+    if (n.includes('수선')) return hasLabel('공장_수선비') ? '공장_수선비' : '수선비';
+    if (n.includes('운반')) return hasLabel('공장_운반비') ? '공장_운반비' : '운반비';
+    if (n.includes('보험')) return hasLabel('공장_보험료') ? '공장_보험료' : '보험료';
+    if (n.includes('수수료')) return hasLabel('공장_지급수수료') ? '공장_지급수수료' : '지급수수료';
+    if (n.includes('감가상각')) return '감가상각비';
+    if (n.includes('세금') || n.includes('공과')) return '세금과공과';
+    if (n.includes('여비') || n.includes('교통')) return hasLabel('여비교통비') ? '여비교통비' : '지급수수료';
+    if (n.includes('통신') || n.includes('전화')) return '통신비';
+    return '__제외__';
+  }
+
   // ── 매출 (4xxxx) ──
-  if (/^4[0-4]/.test(c)) return '매장매출';
+  if (/^4[0-4]/.test(c)) return hasLabel('매장매출') ? '매장매출' : null;
 
   // ── 수식 산출 항목 (계정명으로 확실히 판별) ──
   if (n.includes('퇴직')) return '__제외__';
@@ -1216,8 +1428,8 @@ function buildSummary() {
       });
       const mRetirement = Math.round(mSalary / 12);
 
-      // 카드수수료: 매출소계 * 2.2% (F&B만)
-      const hasCardFee = !!cfg.calcItems[44];
+      // 카드수수료: 매출소계 * 2.2%
+      const hasCardFee = Object.values(cfg.calcItems).some(v => v.label === '카드수수료');
       const mCardFee = hasCardFee ? Math.round(mRevenue * 0.022) : 0;
 
       revenue += mRevenue;
@@ -1230,7 +1442,7 @@ function buildSummary() {
     const totalSga = sga + calcRetirement + calcCardFee;
     const gross = revenue - cogs;
     const op = gross - totalSga;
-    const hasCardFee = !!cfg.calcItems[44];
+    const hasCardFee = Object.values(cfg.calcItems).some(v => v.label === '카드수수료');
     const calcDetail = hasCardFee
       ? `(퇴직급여 ${formatKRW(calcRetirement)} + 카드수수료 ${formatKRW(calcCardFee)})`
       : `(퇴직급여 ${formatKRW(calcRetirement)})`;
@@ -1504,6 +1716,27 @@ function expenseSumifs(jSheet, label, year, month, branch, cSheet) {
   return { formula };
 }
 
+function vendorExpenseSumifs(jSheet, vendors, excludeAccounts, year, month, branch, filterAccounts) {
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const nextYear = month === 12 ? year + 1 : year;
+  const brCond = `'${jSheet}'!$A:$A,"${branch}"`;
+  const dateCond = `'${jSheet}'!$B:$B,">="&DATE(${year},${month},1),'${jSheet}'!$B:$B,"<"&DATE(${nextYear},${nextMonth},1)`;
+  const parts = [];
+  for (const vendor of vendors) {
+    const vendorCond = `'${jSheet}'!$I:$I,"${vendor}"`;
+    if (filterAccounts && filterAccounts.length > 0) {
+      for (const acc of filterAccounts) {
+        parts.push(`SUMIFS('${jSheet}'!$G:$G,${brCond},${vendorCond},${dateCond},'${jSheet}'!$E:$E,"${acc}")`);
+      }
+    } else {
+      let expr = `SUMIFS('${jSheet}'!$G:$G,${brCond},${vendorCond},${dateCond}`;
+      for (const acc of (excludeAccounts || [])) expr += `,'${jSheet}'!$E:$E,"<>${acc}"`;
+      parts.push(expr + `)`);
+    }
+  }
+  return { formula: parts.join('+') };
+}
+
 function colLetter(idx) {
   // 1-based: 1=A, 4=D, 16=P
   let s = '';
@@ -1579,13 +1812,25 @@ function buildEvalSheet(ws, branch, jSheetName, cSheetName, year, mode = 'eval')
     const row = ws.getRow(rowNum);
     if (bLabel) { row.getCell(2).value = bLabel; row.getCell(2).font = { name: '맑은 고딕', size: 10, bold: true }; }
     if (cLabel) { row.getCell(3).value = cLabel; row.getCell(3).font = { name: '맑은 고딕', size: 10 }; }
+    const addVendor = cfg.additionalVendorRows?.[rowNum];
+    const exclVendor = cfg.vendorExcludeRows?.[rowNum];
     for (let m = 1; m <= 12; m++) {
       const col = 3 + m;
       if (targetLabel && selectedMonths.has(m)) {
         if (type === 'revenue') {
           row.getCell(col).value = revenueSumifs(jSheetName, targetLabel, year, m, branch, cardSheet);
         } else {
-          row.getCell(col).value = expenseSumifs(jSheetName, targetLabel, year, m, branch, cardSheet);
+          const base = expenseSumifs(jSheetName, targetLabel, year, m, branch, cardSheet);
+          let formula = base.formula;
+          if (addVendor) {
+            const extra = vendorExpenseSumifs(jSheetName, addVendor.vendors, addVendor.excludeAccounts, year, m, branch);
+            formula += `+${extra.formula}`;
+          }
+          if (exclVendor) {
+            const excl = vendorExpenseSumifs(jSheetName, exclVendor.vendors, [], year, m, branch, exclVendor.filterAccounts);
+            formula += `-(${excl.formula})`;
+          }
+          row.getCell(col).value = { formula };
         }
       }
       styleCell(row.getCell(col), { numFmt: FMT_NUM });
@@ -1596,11 +1841,16 @@ function buildEvalSheet(ws, branch, jSheetName, cSheetName, year, mode = 'eval')
     row.getCell(3).border = thinBorder();
   }
 
-  // Row 5: 매장매출
-  setDataRow(5, '매출', '매장매출', '매장매출', 'revenue');
+  // Revenue items (data-driven from evalTargets)
+  const revItems = cfg.evalTargets.filter(t => t.type === 'revenue');
+  const revItemRows = new Set(revItems.map(t => t.row));
+  revItems.forEach((item, idx) => {
+    setDataRow(item.row, idx === 0 ? '매출' : '', item.label, item.label, 'revenue');
+  });
 
-  // Empty revenue rows (between row 5 and subtotal)
-  for (let r = 6; r < cfg.revenueSubtotalRow; r++) {
+  // Empty revenue rows (rows not covered by evalTargets)
+  for (let r = 5; r < cfg.revenueSubtotalRow; r++) {
+    if (revItemRows.has(r)) continue;
     const row = ws.getRow(r);
     for (let c = 2; c <= 16; c++) {
       row.getCell(c).border = thinBorder();
@@ -1702,6 +1952,27 @@ function buildEvalSheet(ws, branch, jSheetName, cSheetName, year, mode = 'eval')
       return;
     }
 
+    // 거래처 필터 행 (4대보험 등)
+    const vDef = cfg.vendorRows?.[item.row];
+    if (vDef) {
+      const row = ws.getRow(item.row);
+      if (bLabel) { row.getCell(2).value = bLabel; row.getCell(2).font = { name: '맑은 고딕', size: 10, bold: true }; }
+      row.getCell(3).value = item.label;
+      row.getCell(3).font = { name: '맑은 고딕', size: 10 };
+      row.getCell(2).border = thinBorder();
+      row.getCell(3).border = thinBorder();
+      for (let m = 1; m <= 12; m++) {
+        const col = 3 + m;
+        if (selectedMonths.has(m)) {
+          row.getCell(col).value = vendorExpenseSumifs(jSheetName, vDef.vendors, vDef.excludeAccounts, year, m, branch);
+        }
+        styleCell(row.getCell(col), { numFmt: FMT_NUM });
+      }
+      row.getCell(16).value = { formula: `SUM(D${item.row}:O${item.row})` };
+      styleCell(row.getCell(16), { numFmt: FMT_NUM, bold: true });
+      return;
+    }
+
     setDataRow(item.row, bLabel, item.label, item.label, 'sga');
   });
 
@@ -1731,9 +2002,9 @@ function buildEvalSheet(ws, branch, jSheetName, cSheetName, year, mode = 'eval')
     row.getCell(3).border = thinBorder();
     for (let c = 4; c <= 16; c++) {
       if (isGeneral) {
-        // 일반손익용: 예비비 = 매출소계 × 0.7%
+        // 일반손익용: 예비비 = 매출소계 × 0.07%
         const cl = colLetter(c);
-        row.getCell(c).value = { formula: `${cl}${cfg.revenueSubtotalRow}*0.007` };
+        row.getCell(c).value = { formula: `${cl}${cfg.revenueSubtotalRow}*0.0007` };
       }
       styleCell(row.getCell(c), { numFmt: FMT_NUM });
     }
