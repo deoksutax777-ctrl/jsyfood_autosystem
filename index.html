@@ -337,8 +337,8 @@ const COMPANY_CONFIG = {
     sgaSubtotalRow: 48,
     operatingRow: 49,
     ratioRow: 50,
-    reserveRow: 46,
-    emptyBeforeSgaSubtotal: [47],
+    reserveRow: null,
+    emptyBeforeSgaSubtotal: [46, 47],
     section2StartRow: 52,
     section2: {
       headerRows: [52, 53],
@@ -358,11 +358,10 @@ const COMPANY_CONFIG = {
         { row: 66, b: '', c: '수도광열비', formula: cl => `+${cl}37` },
         { row: 67, b: '', c: '광고비', formula: cl => `+${cl}35` },
         { row: 68, b: '', c: '매장소모품', formula: cl => `+${cl}20` },
-        { row: 69, b: '', c: '예비비', formula: cl => `+${cl}46` },
-        { row: 70, b: '', c: '로열티', formula: cl => `+${cl}31` },
-        { row: 71, b: '', c: '기타', formula: cl => `+${cl}48-SUM(${cl}63:${cl}70)` },
-        { row: 72, b: '', c: '소계', formula: cl => `SUM(${cl}64:${cl}71)`, style: 'subtotal' },
-        { row: 73, b: '영업이익', c: '', formula: cl => `${cl}59-${cl}63-${cl}72`, style: 'highlight' },
+        { row: 69, b: '', c: '로열티', formula: cl => `+${cl}31` },
+        { row: 70, b: '', c: '기타', formula: cl => `+${cl}48-SUM(${cl}63:${cl}69)` },
+        { row: 71, b: '', c: '소계', formula: cl => `SUM(${cl}64:${cl}70)`, style: 'subtotal' },
+        { row: 72, b: '영업이익', c: '', formula: cl => `${cl}59-${cl}63-${cl}71`, style: 'highlight' },
       ],
     },
     section3StartRow: 75,
@@ -436,17 +435,13 @@ const COMPANY_CONFIG = {
       { label: '차량리스', row: 40, type: 'sga' },
       { label: '화재보험', row: 41, type: 'sga' },
       { label: '주류대출상환', row: 42, type: 'sga' },
-      { label: '카드수수료', row: 43, type: 'calc' },
     ],
     calcItems: {
       17: { label: '퇴직급여', formula: cl => `${cl}15/12` },
-      43: { label: '카드수수료', formula: cl => `${cl}8*0.022` },
     },
     calcDataJson: (vals) => {
       const salary = (vals[15] || 0) + (vals[16] || 0);
       vals[17] = Math.round(salary / 12);
-      const rev = (vals[5] || 0) + (vals[6] || 0) + (vals[7] || 0);
-      vals[43] = Math.round(rev * 0.022);
     },
     revenueSubtotalRow: 8,
     revenueRows: [5, 6, 7],
@@ -459,7 +454,8 @@ const COMPANY_CONFIG = {
     sgaSubtotalRow: 45,
     operatingRow: 46,
     ratioRow: 47,
-    reserveRow: 44,
+    reserveRow: null,
+    emptyBeforeSgaSubtotal: [43, 44],
     emptyBeforeSgaSubtotal: [],
     section2StartRow: 49,
     section2: {
