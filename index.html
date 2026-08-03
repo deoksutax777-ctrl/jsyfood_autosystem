@@ -379,7 +379,7 @@ const COMPANY_CONFIG = {
       { start: 49, end: 50, standalone: true },
     ],
     summarySheets: [
-      { name: '합계_청기와타운', title: '청기와타운 전지점', exclude: ['항정사이', '야끼호', '블랙'] },
+      { name: '합계_청기와타운', title: '청기와타운 전지점', exclude: ['에프앤비', '야끼호', '영등포가든', '여의도'] },
       { name: '합계_전체', title: '전지점', exclude: [] },
     ],
     janHardcode: {
@@ -393,9 +393,9 @@ const COMPANY_CONFIG = {
       '왕십리': {5:173179643,8:76289240,9:3450500,10:1454545,11:802519,15:39137900,16:4389140,17:2993910,18:3543920,19:398480,20:1268473,26:138680,28:27000,29:527273,30:450000,32:9048369,33:528750,34:686009,35:300000,36:200000,37:403544,38:50755,40:5131864,43:72000,44:3809952},
       '서현': {5:101640898,8:41450047,9:2673590,10:727273,11:190520,15:22526124,16:6433716,17:1669100,18:2413320,19:58950,20:1067500,26:173610,28:40500,30:79200,32:11000000,33:400000,34:1476641,36:200000,37:2362903,38:39293,39:4000,40:2637558,41:138600,43:50000,44:2236100},
       '마곡': {5:60537295,8:25718020,9:1632740,10:279546,11:140082,15:23091750,17:1850685,18:1924313,19:70000,20:734230,26:79260,28:27000,32:5400000,34:295411,36:200000,37:1049038,38:102198,40:1046290,41:198000,43:50000,44:1331820},
-      '블랙': {22:150000,26:28300,28:27000,37:674978,38:33000},
+      '영등포가든': {22:150000,26:28300,28:27000,37:674978,38:33000},
       '야끼호': {5:36417942,8:6447557,9:5777000,10:81819,11:219760,15:11910152,17:799910,18:575083,19:277400,20:94980,26:87150,28:27000,32:2000000,34:137042,36:200000,37:780911,38:36897,43:112000,44:801195},
-      '항정사이': {5:70274346,8:15811177,9:3131344,11:477000,15:20012556,17:2472390,18:1486130,19:202800,20:344390,25:1240000,26:69830,28:97000,30:103400,32:11190000,33:645000,34:462000,35:183700,36:200000,37:2633352,38:106946,41:133200,43:60000,44:1546036},
+      '에프앤비': {5:70274346,8:15811177,9:3131344,11:477000,15:20012556,17:2472390,18:1486130,19:202800,20:344390,25:1240000,26:69830,28:97000,30:103400,32:11190000,33:645000,34:462000,35:183700,36:200000,37:2633352,38:106946,41:133200,43:60000,44:1546036},
     },
   },
   invest: {
@@ -1748,12 +1748,15 @@ function colLetter(idx) {
 // 1월 하드코드 데이터를 지점 이름으로 찾기 (유연한 매칭, company-aware)
 function findJanHardcode(branch) {
   const hcData = activeConfig.janHardcode;
+  if (hcData[branch]) return hcData[branch];
+  let best = null, bestLen = -1;
   for (const [key, data] of Object.entries(hcData)) {
-    if (branch.includes(key) || key.includes(branch)) {
-      return data;
+    if ((branch.includes(key) || key.includes(branch)) && key.length > bestLen) {
+      best = data;
+      bestLen = key.length;
     }
   }
-  return null;
+  return best;
 }
 
 function buildEvalSheet(ws, branch, jSheetName, cSheetName, year, mode = 'eval') {
@@ -2168,10 +2171,14 @@ function buildEvalSheet(ws, branch, jSheetName, cSheetName, year, mode = 'eval')
 
   // === 데이터 JSON 하드코드 적용 (이전 월 누적) ===
   if (savedDataJson) {
-    let branchData = null;
-    for (const [key, val] of Object.entries(savedDataJson)) {
-      if (key === branch || key.includes(branch) || branch.includes(key)) {
-        branchData = val; break;
+    let branchData = savedDataJson[branch] || null;
+    if (!branchData) {
+      let bestLen = -1;
+      for (const [key, val] of Object.entries(savedDataJson)) {
+        if ((key.includes(branch) || branch.includes(key)) && key.length > bestLen) {
+          branchData = val;
+          bestLen = key.length;
+        }
       }
     }
     if (branchData) {
